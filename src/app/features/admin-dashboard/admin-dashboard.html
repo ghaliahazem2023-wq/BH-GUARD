@@ -1,143 +1,448 @@
-<div class="app-wrapper">
-  <aside class="sidebar-bh">
-    <div class="sidebar-header">
-      <div class="logo-bh-box">
-        <div class="bh-sigle">BH</div>
-      </div>
-      <span class="brand-name">BH-GUARD</span>
+<!-- admin-dashboard.component.html -->
+<div class="shell">
+
+  <!-- ══════════════════════════════ SIDEBAR ══════════════════════════════ -->
+  <aside class="sidebar" [class.collapsed]="!sidebarOpen">
+    <div class="sidebar-logo">
+      <div class="logo-icon">BH</div>
+      <span class="logo-text">BH-GUARD</span>
     </div>
 
     <nav class="sidebar-nav">
-      <a class="nav-item active"><i class="fas fa-chart-pie"></i> <span>Dashboard</span></a>
-      <a class="nav-item"><i class="fas fa-users-cog"></i> <span>Utilisateurs</span></a>
-      <a class="nav-item"><i class="fas fa-lock"></i> <span>Sécurité</span></a>
-      <div class="nav-divider"></div>
-      <a class="nav-logout"><i class="fas fa-sign-out-alt"></i> <span>Déconnexion</span></a>
+      <button class="nav-item" [class.active]="activeTab==='dashboard'" (click)="setTab('dashboard')">
+        <span class="nav-icon">⬛</span>
+        <span class="nav-label">Dashboard</span>
+      </button>
+      <button class="nav-item" [class.active]="activeTab==='utilisateurs'" (click)="setTab('utilisateurs')">
+        <span class="nav-icon">👥</span>
+        <span class="nav-label">Utilisateurs</span>
+      </button>
+      <button class="nav-item" [class.active]="activeTab==='sinistres'" (click)="setTab('sinistres')">
+        <span class="nav-icon">🔍</span>
+        <span class="nav-label">Sinistres Suspects</span>
+        <span class="nav-badge" *ngIf="stats.alertesActives > 0">{{stats.alertesActives}}</span>
+      </button>
+      <button class="nav-item" [class.active]="activeTab==='securite'" (click)="setTab('securite')">
+        <span class="nav-icon">🛡️</span>
+        <span class="nav-label">Sécurité</span>
+      </button>
     </nav>
+
+    <div class="sidebar-footer">
+      <div class="current-user-info">
+        <div class="cu-avatar">{{getInitials(currentUser?.nom || 'A', currentUser?.prenom || 'D')}}</div>
+        <div class="cu-details">
+          <span class="cu-name">{{currentUser?.prenom}} {{currentUser?.nom}}</span>
+          <span class="cu-role">Administrateur</span>
+        </div>
+      </div>
+      <button class="logout-btn" (click)="logout()">
+        <span>⏻</span> Déconnexion
+      </button>
+    </div>
   </aside>
 
+  <!-- ══════════════════════════════ MAIN ══════════════════════════════ -->
   <main class="main-content">
-    <header class="top-bar">
-      <div class="user-info-top">
-        <span class="role-badge">ADMINISTRATEUR</span>
-        <span class="user-display-name">{{ loggedInUser.username }}</span>
+
+    <!-- TOPBAR -->
+    <header class="topbar">
+      <div class="topbar-left">
+        <button class="toggle-btn" (click)="sidebarOpen = !sidebarOpen">☰</button>
+        <div class="page-title">
+          <span *ngIf="activeTab==='dashboard'">Vue d'ensemble</span>
+          <span *ngIf="activeTab==='utilisateurs'">Gestion des Utilisateurs</span>
+          <span *ngIf="activeTab==='sinistres'">Sinistres Suspects</span>
+          <span *ngIf="activeTab==='securite'">Sécurité & Historique</span>
+        </div>
+      </div>
+      <div class="topbar-right">
+        <div class="live-badge">
+          <span class="pulse-dot"></span> EN DIRECT
+        </div>
+        <button class="theme-btn" (click)="toggleTheme()" [title]="darkMode ? 'Passer en mode clair' : 'Passer en mode sombre'">
+          {{darkMode ? '☀️' : '🌙'}}
+        </button>
+        <div class="admin-chip">
+          <span class="chip-role">ADMINISTRATEUR</span>
+          <span class="chip-name">{{currentUser?.prenom || 'Admin'}}</span>
+        </div>
       </div>
     </header>
 
-    <div class="content-body">
-      <div class="stats-container">
-        <div class="stat-card blue">
-          <div class="icon-bg"><i class="fas fa-users"></i></div>
-          <div class="stat-txt"><p>Total Utilisateurs</p><h3>{{ stats.total }}</h3></div>
+    <!-- ALERT TOAST -->
+    <div class="toast" [class.show]="showAlert" [class.success]="alertType==='success'" [class.error]="alertType==='error'" [class.info]="alertType==='info'">
+      {{alertMessage}}
+    </div>
+
+    <!-- ────────────────────── TAB: DASHBOARD ────────────────────── -->
+    <div class="tab-content" *ngIf="activeTab==='dashboard'">
+
+      <!-- KPI CARDS -->
+      <div class="kpi-grid">
+        <div class="kpi-card blue">
+          <div class="kpi-icon">👤</div>
+          <div class="kpi-data">
+            <div class="kpi-value">{{stats.totalUtilisateurs}}</div>
+            <div class="kpi-label">Total Utilisateurs</div>
+          </div>
+          <div class="kpi-sub">{{stats.agentsAntiFraude}} agents · {{stats.administrateurs}} admins</div>
         </div>
-        <div class="stat-card red">
-          <div class="icon-bg"><i class="fas fa-user-shield"></i></div>
-          <div class="stat-txt"><p>Administrateurs</p><h3>{{ stats.admins }}</h3></div>
+        <div class="kpi-card red">
+          <div class="kpi-icon">⚠️</div>
+          <div class="kpi-data">
+            <div class="kpi-value">{{stats.alertesActives}}</div>
+            <div class="kpi-label">Alertes Actives</div>
+          </div>
+          <div class="kpi-sub">Nécessitent une intervention</div>
         </div>
-        <div class="stat-card green">
-          <div class="icon-bg"><i class="fas fa-user-tie"></i></div>
-          <div class="stat-txt"><p>Agents Anti-Fraude</p><h3>{{ stats.agents }}</h3></div>
+        <div class="kpi-card green">
+          <div class="kpi-icon">📋</div>
+          <div class="kpi-data">
+            <div class="kpi-value">{{stats.totalSinistres}}</div>
+            <div class="kpi-label">Total Sinistres</div>
+          </div>
+          <div class="kpi-sub">{{stats.sinistresEnCours}} en cours</div>
+        </div>
+        <div class="kpi-card orange">
+          <div class="kpi-icon">📊</div>
+          <div class="kpi-data">
+            <div class="kpi-value">{{stats.tauxFraude | number:'1.1-1'}}%</div>
+            <div class="kpi-label">Taux de Fraude</div>
+          </div>
+          <div class="kpi-sub">{{stats.contratsAnalyses}} contrats analysés</div>
         </div>
       </div>
 
-      <div class="tables-side-by-side">
-        
-        <div class="glass-panel main-table">
-          <div class="panel-header">
-            <h4><i class="fas fa-address-book"></i> Gestion des Comptes</h4>
-            <div class="header-actions">
-              <input type="text" [(ngModel)]="userSearch" class="search-input" placeholder="Chercher utilisateur...">
-              <button class="btn-add-bh" (click)="openAddModal()">+ Ajouter</button>
-            </div>
-          </div>
-          <div class="table-container">
-            <table>
-              <thead>
-                <tr>
-                  <th>Nom</th>
-                  <th>Rôle</th>
-                  <th class="text-center">Action</th> 
-                </tr>
-              </thead>
-              <tbody>
-                <tr *ngFor="let user of filteredUsers">
-                  <td><strong>{{ user.username }}</strong></td>
-                  <td><span [class]="'badge-role ' + user.role">{{ user.role }}</span></td>
-                  <td class="text-center">
-                    <button class="bh-btn-delete" (click)="onDelete(user.id)" title="Supprimer l'utilisateur">
-                      <i class="fas fa-trash-alt"></i>
-                    </button>
-                  </td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-        </div>
+      <!-- CHARTS ROW -->
+      <div class="charts-row">
 
-        <div class="glass-panel small-table">
-          <div class="panel-header">
-            <h4><i class="fas fa-history"></i> Historique Accès</h4>
+        <!-- Bar chart — Sinistres par mois -->
+        <div class="card chart-card">
+          <div class="card-header">
+            <h3>Sinistres Signalés — 2025</h3>
+            <span class="card-tag">Mensuel</span>
           </div>
-          <div class="table-container">
-            <table>
-              <thead>
-                <tr>
-                  <th>Utilisateur</th>
-                  <th>Date</th>
-                  <th>Heure</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr *ngFor="let h of historyData | paginate: { itemsPerPage: 5, currentPage: p }">
-                  <td><strong>{{ h.username }}</strong></td>
-                  <td>{{ h.loginDate | date:'dd/MM/yyyy' }}</td>
-                  <td class="time-txt">{{ h.loginDate | date:'HH:mm:ss' }}</td>
-                </tr>
-              </tbody>
-            </table>
-            
-            <div class="pagination-bh">
-                <pagination-controls (pageChange)="p = $event" previousLabel="" nextLabel=""></pagination-controls>
-            </div>
-
-            <div *ngIf="historyData.length === 0" class="no-data">
-              Aucun historique trouvé.
+          <div class="bar-chart">
+            <div class="bar-wrap" *ngFor="let val of chartData.sinistresParMois; let i = index">
+              <div class="bar" [style.height.%]="getBarHeight(val, maxSinistreMois)" [class.highlight]="i === 4"></div>
+              <span class="bar-label">{{mois[i]}}</span>
             </div>
           </div>
         </div>
 
-      </div> 
+        <!-- Donut-style — Fraude par type
+             ⚠️ À IMPLÉMENTER PLUS TARD
+             Focus actuel : détection fraude AUTO uniquement
+             Ce graphique est un placeholder visuel — données non réelles -->
+        <div class="card chart-card donut-card">
+          <!-- Overlay placeholder — retirer quand multi-type sera implémenté -->
+          <div class="chart-placeholder-overlay">
+            <span class="overlay-icon">⚠️</span>
+            <span class="overlay-title">À implémenter</span>
+            <span class="overlay-desc">
+              Focus actuel : fraude <strong>Auto</strong> uniquement.<br>
+              Répartition multi-type prévue en V2.
+            </span>
+          </div>
+          <div class="card-header">
+            <h3>Fraude par Type</h3>
+            <span class="card-tag">Répartition</span>
+          </div>
+          <div class="donut-wrap">
+            <div class="donut-center">
+              <span class="donut-pct">{{stats.tauxFraude | number:'1.0-0'}}%</span>
+              <span class="donut-sub">fraude globale</span>
+            </div>
+          </div>
+          <div class="legend-list">
+            <div class="legend-item" *ngFor="let item of chartData.fraudeParType">
+              <span class="legend-dot" [style.background]="item.color"></span>
+              <span class="legend-label">{{item.label}}</span>
+              <span class="legend-val">{{item.value}}%</span>
+              <div class="legend-bar-bg">
+                <div class="legend-bar-fill" [style.width.%]="item.value" [style.background]="item.color"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- SINISTRES STATUS + ACCÈS RAPIDES -->
+      <div class="bottom-row">
+
+        <div class="card status-card">
+          <div class="card-header">
+            <h3>État des Sinistres</h3>
+          </div>
+          <div class="status-bars">
+            <div class="status-bar-item">
+              <div class="sb-header"><span>✅ Validés</span><span>{{stats.sinistresValides}}</span></div>
+              <div class="sb-track"><div class="sb-fill green" [style.width.%]="(stats.sinistresValides / stats.totalSinistres) * 100"></div></div>
+            </div>
+            <div class="status-bar-item">
+              <div class="sb-header"><span>⏳ En cours</span><span>{{stats.sinistresEnCours}}</span></div>
+              <div class="sb-track"><div class="sb-fill blue" [style.width.%]="(stats.sinistresEnCours / stats.totalSinistres) * 100"></div></div>
+            </div>
+            <div class="status-bar-item">
+              <div class="sb-header"><span>❌ Rejetés</span><span>{{stats.sinistresRejetes}}</span></div>
+              <div class="sb-track"><div class="sb-fill red" [style.width.%]="(stats.sinistresRejetes / stats.totalSinistres) * 100"></div></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card quick-actions-card">
+          <div class="card-header"><h3>Actions Rapides</h3></div>
+          <div class="quick-actions">
+            <button class="qa-btn" (click)="setTab('utilisateurs'); showAddUserModal=true">
+              <span>➕</span> Nouvel Agent
+            </button>
+            <button class="qa-btn" (click)="setTab('sinistres')">
+              <span>🔍</span> Voir Suspects
+            </button>
+            <button class="qa-btn" (click)="setTab('securite')">
+              <span>📋</span> Historique Accès
+            </button>
+            <button class="qa-btn" (click)="loadAllData()">
+              <span>🔄</span> Rafraîchir
+            </button>
+          </div>
+        </div>
+
+      </div>
     </div>
+
+    <!-- ────────────────────── TAB: UTILISATEURS ────────────────────── -->
+    <div class="tab-content" *ngIf="activeTab==='utilisateurs'">
+      <div class="card full-card">
+        <div class="card-header space-between">
+          <h3>Gestion des Comptes</h3>
+          <div class="header-actions">
+            <div class="search-box">
+              <span class="search-icon">🔎</span>
+              <input type="text" placeholder="Chercher utilisateur..." [(ngModel)]="searchQuery" (input)="filterUsers()" />
+            </div>
+            <button class="btn-primary" (click)="showAddUserModal=true">+ Ajouter</button>
+          </div>
+        </div>
+
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Utilisateur</th>
+              <th>Email</th>
+              <th>Rôle</th>
+              <th>Date Création</th>
+              <th>Statut</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let user of paginatedUsers" class="table-row">
+              <td class="user-cell">
+                <div class="user-avatar">{{getInitials(user.nom, user.prenom)}}</div>
+                <span>{{ (user.prenom || user.nom) ? ((user.prenom || '') + ' ' + (user.nom || '')).trim() : (user.username || '—') }}</span>
+              </td>
+              <td class="muted">{{user.email || user.username || '—'}}</td>
+              <td>
+                <span class="role-badge" [class.admin]="user.role==='ADMINISTRATEUR'" [class.agent]="user.role==='AGENT_ANTI_FRAUDE'">
+                  {{user.role === 'ADMINISTRATEUR' ? 'Admin' : 'Agent'}}
+                </span>
+              </td>
+              <td class="muted">{{user.dateCreation || '—'}}</td>
+              <td>
+                <span class="status-pill" [class.active]="user.actif" [class.inactive]="!user.actif">
+                  {{user.actif ? 'Actif' : 'Inactif'}}
+                </span>
+              </td>
+              <td class="action-cell">
+                <button class="icon-btn toggle" (click)="toggleUserStatus(user)" title="Activer/Désactiver">
+                  {{user.actif ? '⏸' : '▶'}}
+                </button>
+                <button class="icon-btn delete" (click)="confirmDelete(user)" title="Supprimer">🗑</button>
+              </td>
+            </tr>
+            <tr *ngIf="paginatedUsers.length === 0">
+              <td colspan="6" class="empty-state">Aucun utilisateur trouvé</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <!-- Pagination -->
+        <div class="pagination" *ngIf="totalPages > 1">
+          <button class="page-btn" [disabled]="currentPage === 1" (click)="currentPage = currentPage - 1">‹</button>
+          <button class="page-btn" *ngFor="let p of [].constructor(totalPages); let i=index"
+            [class.active]="currentPage === i+1" (click)="currentPage = i+1">{{i+1}}</button>
+          <button class="page-btn" [disabled]="currentPage === totalPages" (click)="currentPage = currentPage + 1">›</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ────────────────────── TAB: SINISTRES SUSPECTS ────────────────────── -->
+    <div class="tab-content" *ngIf="activeTab==='sinistres'">
+      <div class="card full-card">
+        <div class="card-header space-between">
+          <h3>Sinistres Suspects — Détection IA</h3>
+          <div class="filter-tabs">
+            <button [class.active]="sinistresFilter==='TOUS'" (click)="sinistresFilter='TOUS'">Tous</button>
+            <button [class.active]="sinistresFilter==='SUSPECT'" (click)="sinistresFilter='SUSPECT'">Suspects</button>
+            <button [class.active]="sinistresFilter==='EN_ANALYSE'" (click)="sinistresFilter='EN_ANALYSE'">En Analyse</button>
+            <button [class.active]="sinistresFilter==='CONFIRMÉ'" (click)="sinistresFilter='CONFIRMÉ'">Confirmés</button>
+          </div>
+        </div>
+
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>N° Contrat</th>
+              <th>Assuré</th>
+              <th>Type</th>
+              <th>Montant</th>
+              <th>Score IA</th>
+              <th>Niveau Risque</th>
+              <th>Statut</th>
+              <th>Date</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let s of filteredSinistres" class="table-row">
+              <td class="mono">{{s.numeroContrat}}</td>
+              <td>{{s.assure}}</td>
+              <td><span class="type-tag">{{s.typeAssurance}}</span></td>
+              <td class="amount">{{s.montant | number}} TND</td>
+              <td>
+                <div class="score-wrap">
+                  <div class="score-bar-bg">
+                    <div class="score-bar-fill" [style.width.%]="s.scoreRisque" [style.background]="getRiskColor(s.scoreRisque)"></div>
+                  </div>
+                  <span class="score-num" [style.color]="getRiskColor(s.scoreRisque)">{{s.scoreRisque}}%</span>
+                </div>
+              </td>
+              <td>
+                <span class="risk-badge" [style.color]="getRiskColor(s.scoreRisque)" [style.border-color]="getRiskColor(s.scoreRisque)">
+                  {{getRiskLabel(s.scoreRisque)}}
+                </span>
+              </td>
+              <td>
+                <span class="statut-chip"
+                  [class.suspect]="s.statut==='SUSPECT'"
+                  [class.analyse]="s.statut==='EN_ANALYSE'"
+                  [class.confirme]="s.statut==='CONFIRMÉ'">
+                  {{s.statut}}
+                </span>
+              </td>
+              <td class="muted">{{s.dateSignalement}}</td>
+            </tr>
+            <tr *ngIf="filteredSinistres.length === 0">
+              <td colspan="8" class="empty-state">Aucun sinistre trouvé</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ────────────────────── TAB: SÉCURITÉ ────────────────────── -->
+    <div class="tab-content" *ngIf="activeTab==='securite'">
+      <div class="card full-card">
+        <div class="card-header">
+          <h3>Historique des Accès</h3>
+          <span class="card-tag">{{loginHistory.length}} entrées</span>
+        </div>
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Utilisateur</th>
+              <th>Adresse IP</th>
+              <th>Date</th>
+              <th>Heure</th>
+              <th>Statut</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let h of paginatedHistory" class="table-row" [class.suspicious]="h.statut==='ÉCHEC'">
+              <td>{{h.utilisateur}}</td>
+              <td class="mono">{{h.adresseIp || '—'}}</td>
+              <td class="muted">{{h.date}}</td>
+              <td class="muted">{{h.heure}}</td>
+              <td>
+                <span class="status-pill" [class.active]="h.statut==='SUCCÈS'" [class.inactive]="h.statut==='ÉCHEC'">
+                  {{h.statut}}
+                </span>
+              </td>
+            </tr>
+            <tr *ngIf="paginatedHistory.length === 0">
+              <td colspan="5" class="empty-state">Aucun historique trouvé</td>
+            </tr>
+          </tbody>
+        </table>
+        <div class="pagination" *ngIf="totalHistoryPages > 1">
+          <button class="page-btn" [disabled]="historyPage === 1" (click)="historyPage = historyPage - 1">‹</button>
+          <button class="page-btn" *ngFor="let p of [].constructor(totalHistoryPages); let i=index"
+            [class.active]="historyPage === i+1" (click)="historyPage = i+1">{{i+1}}</button>
+          <button class="page-btn" [disabled]="historyPage === totalHistoryPages" (click)="historyPage = historyPage + 1">›</button>
+        </div>
+      </div>
+    </div>
+
   </main>
 </div>
 
-<div class="modal-overlay" *ngIf="showModal" (click)="closeModal()"></div>
-<div class="modal-box animate-in" *ngIf="showModal">
-  <div class="modal-content">
+<!-- ══════════════════════ MODAL: Ajouter Utilisateur ══════════════════════ -->
+<div class="modal-overlay" *ngIf="showAddUserModal" (click)="closeModal()">
+  <div class="modal" (click)="$event.stopPropagation()">
     <div class="modal-header">
-      <h3>Nouveau Compte</h3>
-      <button class="close-btn" (click)="closeModal()">&times;</button>
+      <h3>Nouvel Utilisateur</h3>
+      <button class="modal-close" (click)="closeModal()">✕</button>
     </div>
     <div class="modal-body">
-      <div class="input-group">
-        <label><i class="fas fa-user"></i> Nom d'utilisateur</label>
-        <input type="text" [(ngModel)]="newUser.username" placeholder="Identifiant">
+      <div class="form-row">
+        <div class="form-group">
+          <label>Prénom</label>
+          <input type="text" [(ngModel)]="newUser.prenom" placeholder="Prénom" />
+        </div>
+        <div class="form-group">
+          <label>Nom</label>
+          <input type="text" [(ngModel)]="newUser.nom" placeholder="Nom" />
+        </div>
       </div>
-      <div class="input-group">
-        <label><i class="fas fa-key"></i> Mot de passe</label>
-        <input type="password" [(ngModel)]="newUser.password" placeholder="••••••••">
+      <div class="form-group">
+        <label>Email</label>
+        <input type="email" [(ngModel)]="newUser.email" placeholder="email@bh.tn" />
       </div>
-      <div class="input-group">
-        <label><i class="fas fa-user-tag"></i> Rôle</label>
+      <div class="form-group">
+        <label>Mot de passe</label>
+        <input type="password" [(ngModel)]="newUser.motDePasse" placeholder="••••••••" />
+      </div>
+      <div class="form-group">
+        <label>Rôle</label>
         <select [(ngModel)]="newUser.role">
-          <option value="ADMINISTRATEUR">Administrateur</option>
           <option value="AGENT_ANTI_FRAUDE">Agent Anti-Fraude</option>
+          <option value="ADMINISTRATEUR">Administrateur</option>
         </select>
       </div>
     </div>
     <div class="modal-footer">
-      <button class="btn-cancel" (click)="closeModal()">Annuler</button>
-      <button class="btn-save" (click)="saveUser()">Confirmer</button>
+      <button class="btn-ghost" (click)="closeModal()">Annuler</button>
+      <button class="btn-primary" (click)="addUser()" [disabled]="loading">
+        {{loading ? 'Ajout...' : 'Ajouter'}}
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════ MODAL: Confirmer Suppression ══════════════════════ -->
+<div class="modal-overlay" *ngIf="showDeleteConfirm" (click)="showDeleteConfirm=false">
+  <div class="modal modal-sm" (click)="$event.stopPropagation()">
+    <div class="modal-header danger">
+      <h3>Confirmer la suppression</h3>
+    </div>
+    <div class="modal-body">
+      <p>Voulez-vous vraiment supprimer <strong>{{userToDelete?.prenom}} {{userToDelete?.nom}}</strong> ?<br>Cette action est irréversible.</p>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-ghost" (click)="showDeleteConfirm=false">Annuler</button>
+      <button class="btn-danger" (click)="deleteUser()">Supprimer</button>
     </div>
   </div>
 </div>
