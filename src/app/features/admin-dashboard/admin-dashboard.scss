@@ -1,0 +1,146 @@
+$bh-red: #e30613;
+$bh-blue: #004a99;
+$sidebar-w: 260px;
+
+.app-wrapper {
+  display: flex; background: #f4f7fe; min-height: 100vh; font-family: 'Segoe UI', sans-serif;
+}
+
+// Sidebar Style (image_ebe398.png)
+.sidebar-bh {
+  width: $sidebar-w; background: white; height: 100vh; position: fixed;
+  box-shadow: 10px 0 30px rgba(0,0,0,0.03); z-index: 100;
+  .sidebar-header {
+    padding: 2.5rem 2rem; display: flex; align-items: center; gap: 15px;
+    .bh-sigle { width: 45px; height: 45px; background: $bh-blue; color: white; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-weight: 900; box-shadow: 0 5px 15px rgba(0,74,153,0.3); }
+    .brand-name { font-weight: 800; font-size: 1.2rem; color: $bh-blue; }
+  }
+  .sidebar-nav {
+    padding: 1rem;
+    .nav-item {
+      display: flex; align-items: center; gap: 15px; padding: 14px 20px; color: #64748b;
+      text-decoration: none; border-radius: 15px; margin-bottom: 8px; transition: 0.3s;
+      i { font-size: 1.1rem; }
+      &.active { background: $bh-blue; color: white; box-shadow: 0 8px 16px rgba(0,74,153,0.2); }
+      &:hover:not(.active) { background: #f8fafc; color: $bh-blue; }
+    }
+    .nav-logout { color: $bh-red; margin-top: 20px; font-weight: 700; &:hover { background: #fff1f2; border-radius: 15px; } }
+  }
+}
+
+// Main Content
+.main-content { margin-left: $sidebar-w; flex: 1; }
+.top-bar {
+  background: white; padding: 1.2rem 3.5rem; display: flex; justify-content: flex-end;
+  border-bottom: 1px solid #f1f5f9;
+  .user-info-top {
+    display: flex; align-items: center; gap: 12px;
+    .role-badge { background: #fff1f2; color: $bh-red; padding: 4px 14px; border-radius: 20px; font-size: 0.7rem; font-weight: 800; }
+    .user-display-name { font-weight: 700; color: #1e293b; }
+  }
+}
+
+.content-body { padding: 3rem; }
+
+// Stats Cards (image_23d432.png)
+.stats-container { display: grid; grid-template-columns: repeat(3, 1fr); gap: 2.5rem; margin-bottom: 3.5rem; }
+.stat-card {
+  padding: 2rem; border-radius: 28px; display: flex; align-items: center; gap: 20px; color: white;
+  &.blue { background: linear-gradient(135deg, #004a99, #007bff); }
+  &.red { background: linear-gradient(135deg, #e30613, #ff4d5a); }
+  &.green { background: linear-gradient(135deg, #059669, #34d399); }
+ .icon-bg {
+    width: 60px;
+    height: 60px;
+    background: rgba(255, 255, 255, 0.2); // dima khallih transparent chwaya
+    border-radius: 18px;
+    display: flex;             // FIX: bech tji fil west
+    align-items: center;       // FIX: verticalement
+    justify-content: center;    // FIX: horizontalement
+    
+    i {
+      font-size: 1.5rem;       // kobr el icon
+      color: white;            // lawn el icon
+    }
+  }
+  h3 { margin: 0; font-size: 2.2rem; font-weight: 900; }
+  p { margin: 0; font-size: 0.85rem; opacity: 0.9; font-weight: 600; }
+}
+
+// Tables Layout Side-by-Side (image_4bbd7c.png)
+.tables-side-by-side {
+  display: grid; grid-template-columns: 1.6fr 1fr; gap: 2.5rem; align-items: start;
+}
+
+.glass-panel {
+  background: white; border-radius: 30px; padding: 2rem; box-shadow: 0 10px 40px rgba(0,0,0,0.02);
+  .panel-header {
+    display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem;
+    h4 { margin: 0; color: #0f172a; font-weight: 800; }
+  }
+}
+
+table {
+  width: 100%; border-collapse: collapse;
+  th { text-align: left; padding: 12px; color: #94a3b8; font-size: 0.75rem; text-transform: uppercase; border-bottom: 1px solid #f1f5f9; }
+  td { padding: 16px 12px; font-size: 0.9rem; border-bottom: 1px solid #f8fafc; }
+  tbody tr:nth-child(even) { background-color: #fbfcfe; } // Zebra Effect
+}
+
+.badge-role {
+  padding: 5px 12px; border-radius: 8px; font-size: 0.7rem; font-weight: 800;
+  &.ADMINISTRATEUR { background: #fff1f2; color: $bh-red; }
+  &.AGENT_ANTI_FRAUDE { background: #eff6ff; color: $bh-blue; }
+}
+
+.btn-add-bh { background: $bh-blue; color: white; border: none; padding: 10px 20px; border-radius: 12px; font-weight: 700; cursor: pointer; transition: 0.3s; &:hover { transform: translateY(-2px); } }
+.btn-del { background: #fff1f2; color: $bh-red; border: none; width: 35px; height: 35px; border-radius: 10px; cursor: pointer; transition: 0.3s; &:hover { background: $bh-red; color: white; } }
+
+// Modal Styling (image_4c2f2e.png)
+.modal-overlay { position: fixed; inset: 0; background: rgba(15, 23, 42, 0.6); backdrop-filter: blur(8px); z-index: 2000; }
+.modal-box { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 2001; width: 90%; max-width: 480px; }
+.animate-in { animation: modalShow 0.4s cubic-bezier(0.34, 1.56, 0.64, 1); }
+@keyframes modalShow { from { opacity: 0; transform: translate(-50%, -40%) scale(0.9); } to { opacity: 1; transform: translate(-50%, -50%) scale(1); } }
+
+.modal-content {
+  background: white; border-radius: 35px; overflow: hidden; box-shadow: 0 40px 80px rgba(0,0,0,0.25);
+  .modal-header {
+    background: $bh-blue; padding: 2rem; display: flex; justify-content: space-between; align-items: center; color: white;
+    h3 { margin: 0; font-size: 1.2rem; font-weight: 800; }
+    .close-btn { background: rgba(255,255,255,0.1); border: none; color: white; width: 35px; height: 35px; border-radius: 10px; font-size: 1.5rem; cursor: pointer; }
+  }
+  .modal-body {
+    padding: 2.5rem;
+    .input-group {
+      margin-bottom: 1.5rem;
+      label { display: flex; align-items: center; gap: 8px; font-weight: 700; font-size: 0.9rem; margin-bottom: 10px; color: #475569; }
+      input, select { width: 100%; padding: 15px; border-radius: 16px; border: 2px solid #f1f5f9; background: #f8fafc; outline: none; transition: 0.3s; &:focus { border-color: $bh-blue; background: white; } }
+    }
+  }
+  .modal-footer {
+    padding: 0 2.5rem 2.5rem; display: flex; gap: 15px;
+    button { flex: 1; padding: 15px; border-radius: 16px; font-weight: 800; cursor: pointer; border: none; transition: 0.3s; }
+    .btn-cancel { background: #f1f5f9; color: #64748b; &:hover { background: #e2e8f0; } }
+    .btn-save { background: $bh-red; color: white; box-shadow: 0 10px 20px rgba(227, 6, 19, 0.2); &:hover { transform: translateY(-3px); } }
+  }
+}
+
+
+
+.search-input {
+    border: 1px solid #ddd;
+    border-radius: 20px;
+    padding: 5px 15px;
+    font-size: 13px;
+    margin-right: 10px;
+    outline: none;
+    transition: 0.3s;
+}
+.search-input:focus { border-color: #007bff; box-shadow: 0 0 5px rgba(0,123,255,0.2); }
+
+.pagination-bh {
+    display: flex;
+    justify-content: center;
+    margin-top: 10px;
+    font-size: 12px;
+}

@@ -1,0 +1,143 @@
+<div class="app-wrapper">
+  <aside class="sidebar-bh">
+    <div class="sidebar-header">
+      <div class="logo-bh-box">
+        <div class="bh-sigle">BH</div>
+      </div>
+      <span class="brand-name">BH-GUARD</span>
+    </div>
+
+    <nav class="sidebar-nav">
+      <a class="nav-item active"><i class="fas fa-chart-pie"></i> <span>Dashboard</span></a>
+      <a class="nav-item"><i class="fas fa-users-cog"></i> <span>Utilisateurs</span></a>
+      <a class="nav-item"><i class="fas fa-lock"></i> <span>Sécurité</span></a>
+      <div class="nav-divider"></div>
+      <a class="nav-logout"><i class="fas fa-sign-out-alt"></i> <span>Déconnexion</span></a>
+    </nav>
+  </aside>
+
+  <main class="main-content">
+    <header class="top-bar">
+      <div class="user-info-top">
+        <span class="role-badge">ADMINISTRATEUR</span>
+        <span class="user-display-name">{{ loggedInUser.username }}</span>
+      </div>
+    </header>
+
+    <div class="content-body">
+      <div class="stats-container">
+        <div class="stat-card blue">
+          <div class="icon-bg"><i class="fas fa-users"></i></div>
+          <div class="stat-txt"><p>Total Utilisateurs</p><h3>{{ stats.total }}</h3></div>
+        </div>
+        <div class="stat-card red">
+          <div class="icon-bg"><i class="fas fa-user-shield"></i></div>
+          <div class="stat-txt"><p>Administrateurs</p><h3>{{ stats.admins }}</h3></div>
+        </div>
+        <div class="stat-card green">
+          <div class="icon-bg"><i class="fas fa-user-tie"></i></div>
+          <div class="stat-txt"><p>Agents Anti-Fraude</p><h3>{{ stats.agents }}</h3></div>
+        </div>
+      </div>
+
+      <div class="tables-side-by-side">
+        
+        <div class="glass-panel main-table">
+          <div class="panel-header">
+            <h4><i class="fas fa-address-book"></i> Gestion des Comptes</h4>
+            <div class="header-actions">
+              <input type="text" [(ngModel)]="userSearch" class="search-input" placeholder="Chercher utilisateur...">
+              <button class="btn-add-bh" (click)="openAddModal()">+ Ajouter</button>
+            </div>
+          </div>
+          <div class="table-container">
+            <table>
+              <thead>
+                <tr>
+                  <th>Nom</th>
+                  <th>Rôle</th>
+                  <th class="text-center">Action</th> 
+                </tr>
+              </thead>
+              <tbody>
+                <tr *ngFor="let user of filteredUsers">
+                  <td><strong>{{ user.username }}</strong></td>
+                  <td><span [class]="'badge-role ' + user.role">{{ user.role }}</span></td>
+                  <td class="text-center">
+                    <button class="bh-btn-delete" (click)="onDelete(user.id)" title="Supprimer l'utilisateur">
+                      <i class="fas fa-trash-alt"></i>
+                    </button>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="glass-panel small-table">
+          <div class="panel-header">
+            <h4><i class="fas fa-history"></i> Historique Accès</h4>
+          </div>
+          <div class="table-container">
+            <table>
+              <thead>
+                <tr>
+                  <th>Utilisateur</th>
+                  <th>Date</th>
+                  <th>Heure</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr *ngFor="let h of historyData | paginate: { itemsPerPage: 5, currentPage: p }">
+                  <td><strong>{{ h.username }}</strong></td>
+                  <td>{{ h.loginDate | date:'dd/MM/yyyy' }}</td>
+                  <td class="time-txt">{{ h.loginDate | date:'HH:mm:ss' }}</td>
+                </tr>
+              </tbody>
+            </table>
+            
+            <div class="pagination-bh">
+                <pagination-controls (pageChange)="p = $event" previousLabel="" nextLabel=""></pagination-controls>
+            </div>
+
+            <div *ngIf="historyData.length === 0" class="no-data">
+              Aucun historique trouvé.
+            </div>
+          </div>
+        </div>
+
+      </div> 
+    </div>
+  </main>
+</div>
+
+<div class="modal-overlay" *ngIf="showModal" (click)="closeModal()"></div>
+<div class="modal-box animate-in" *ngIf="showModal">
+  <div class="modal-content">
+    <div class="modal-header">
+      <h3>Nouveau Compte</h3>
+      <button class="close-btn" (click)="closeModal()">&times;</button>
+    </div>
+    <div class="modal-body">
+      <div class="input-group">
+        <label><i class="fas fa-user"></i> Nom d'utilisateur</label>
+        <input type="text" [(ngModel)]="newUser.username" placeholder="Identifiant">
+      </div>
+      <div class="input-group">
+        <label><i class="fas fa-key"></i> Mot de passe</label>
+        <input type="password" [(ngModel)]="newUser.password" placeholder="••••••••">
+      </div>
+      <div class="input-group">
+        <label><i class="fas fa-user-tag"></i> Rôle</label>
+        <select [(ngModel)]="newUser.role">
+          <option value="ADMINISTRATEUR">Administrateur</option>
+          <option value="AGENT_ANTI_FRAUDE">Agent Anti-Fraude</option>
+        </select>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-cancel" (click)="closeModal()">Annuler</button>
+      <button class="btn-save" (click)="saveUser()">Confirmer</button>
+    </div>
+  </div>
+</div>
