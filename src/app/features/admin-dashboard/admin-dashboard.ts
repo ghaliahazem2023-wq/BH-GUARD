@@ -65,7 +65,7 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
   private pythonUrl = 'http://localhost:8000';
 
   // UI State
-  activeTab: 'dashboard' | 'utilisateurs' | 'sinistres' | 'securite' = 'dashboard';
+  activeTab: 'dashboard' | 'utilisateurs' | 'sinistres' = 'dashboard';
   sidebarOpen = true;
   darkMode = false;
   showAddUserModal = false;
@@ -121,7 +121,7 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
   };
 
   // Sinistres filter
-  sinistresFilter: 'TOUS' | 'SUSPECT' | 'EN_ANALYSE' | 'CONFIRMÉ' = 'TOUS';
+  sinistresFilter: 'TOUS' | 'SUSPECT' | 'EN_ANALYSE' | 'CONFIRMÉ' | 'REJETÉ' = 'TOUS';
 
   constructor(private http: HttpClient) {}
 
@@ -374,7 +374,7 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
 
   readonly mois = ['Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Jun', 'Jul', 'Aoû', 'Sep', 'Oct', 'Nov', 'Déc'];
 
-  setTab(tab: 'dashboard' | 'utilisateurs' | 'sinistres' | 'securite'): void {
+  setTab(tab: 'dashboard' | 'utilisateurs' | 'sinistres'): void {
     this.activeTab = tab;
   }
 

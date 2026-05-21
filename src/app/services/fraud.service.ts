@@ -3,13 +3,14 @@ import { HttpClient, HttpHeaders } from '@angular/common/http';
 import { Observable } from 'rxjs';
 
 export interface PredictionResponse {
-  num_sinistre   : string;
-  score_risque   : number;
-  est_suspect    : boolean;
-  niveau_risque  : string;
-  flags_detectes : string[];
-  explication_ia : string;
-  recommandation : string;
+  num_sinistre     : string;
+  score_risque     : number;
+  est_suspect      : boolean;
+  niveau_risque    : string;
+  flags_detectes   : string[];
+  explication_ia   : string;
+  recommandation   : string;
+  donnees_sinistre?: { [key: string]: any };
 }
 
 export interface ChatMessage {

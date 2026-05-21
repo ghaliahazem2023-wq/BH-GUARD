@@ -22,10 +22,6 @@
         <span class="nav-label">Sinistres Suspects</span>
         <span class="nav-badge" *ngIf="stats.alertesActives > 0">{{stats.alertesActives}}</span>
       </button>
-      <button class="nav-item" [class.active]="activeTab==='securite'" (click)="setTab('securite')">
-        <span class="nav-icon">🛡️</span>
-        <span class="nav-label">Sécurité</span>
-      </button>
     </nav>
 
     <div class="sidebar-footer">
@@ -53,7 +49,7 @@
           <span *ngIf="activeTab==='dashboard'">Vue d'ensemble</span>
           <span *ngIf="activeTab==='utilisateurs'">Gestion des Utilisateurs</span>
           <span *ngIf="activeTab==='sinistres'">Sinistres Suspects</span>
-          <span *ngIf="activeTab==='securite'">Sécurité & Historique</span>
+
         </div>
       </div>
       <div class="topbar-right">
@@ -201,7 +197,7 @@
             <button class="qa-btn" (click)="setTab('sinistres')">
               <span>🔍</span> Voir Suspects
             </button>
-            <button class="qa-btn" (click)="setTab('securite')">
+            <button class="qa-btn" (click)="loadLoginHistory()">
               <span>📋</span> Historique Accès
             </button>
             <button class="qa-btn" (click)="loadAllData()">
@@ -342,48 +338,6 @@
       </div>
     </div>
 
-    <!-- ────────────────────── TAB: SÉCURITÉ ────────────────────── -->
-    <div class="tab-content" *ngIf="activeTab==='securite'">
-      <div class="card full-card">
-        <div class="card-header">
-          <h3>Historique des Accès</h3>
-          <span class="card-tag">{{loginHistory.length}} entrées</span>
-        </div>
-        <table class="data-table">
-          <thead>
-            <tr>
-              <th>Utilisateur</th>
-              <th>Adresse IP</th>
-              <th>Date</th>
-              <th>Heure</th>
-              <th>Statut</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr *ngFor="let h of paginatedHistory" class="table-row" [class.suspicious]="h.statut==='ÉCHEC'">
-              <td>{{h.utilisateur}}</td>
-              <td class="mono">{{h.adresseIp || '—'}}</td>
-              <td class="muted">{{h.date}}</td>
-              <td class="muted">{{h.heure}}</td>
-              <td>
-                <span class="status-pill" [class.active]="h.statut==='SUCCÈS'" [class.inactive]="h.statut==='ÉCHEC'">
-                  {{h.statut}}
-                </span>
-              </td>
-            </tr>
-            <tr *ngIf="paginatedHistory.length === 0">
-              <td colspan="5" class="empty-state">Aucun historique trouvé</td>
-            </tr>
-          </tbody>
-        </table>
-        <div class="pagination" *ngIf="totalHistoryPages > 1">
-          <button class="page-btn" [disabled]="historyPage === 1" (click)="historyPage = historyPage - 1">‹</button>
-          <button class="page-btn" *ngFor="let p of [].constructor(totalHistoryPages); let i=index"
-            [class.active]="historyPage === i+1" (click)="historyPage = i+1">{{i+1}}</button>
-          <button class="page-btn" [disabled]="historyPage === totalHistoryPages" (click)="historyPage = historyPage + 1">›</button>
-        </div>
-      </div>
-    </div>
 
   </main>
 </div>

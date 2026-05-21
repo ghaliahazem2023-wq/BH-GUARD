@@ -18,6 +18,7 @@ interface Decision{ date:Date; agent:string; num:string; statut:string; score:nu
 interface SinistreItem {
   numSinistre:string; gouvernorat:string; natureSinistre:string;
   montantEvaluation:number; libEtatSinistre:string; nombreBlesses:number;
+  nombreDeces:number; codeResponsabilite:string;
   score?:number; suspect?:boolean; decision?:'CONFORME'|'FRAUDE';
   motifs?:string[];
 }
@@ -121,7 +122,9 @@ interface SinistreItem {
               </div>
               <span class="bd-dot" *ngIf="!a.lue"></span>
             </div>
-            <div class="bd-empty" *ngIf="alertes.length===0">Aucune alerte</div>
+            <div class="bd-empty" *ngIf="alertes.length===0">
+              Aucune alerte — les alertes apparaissent après une analyse IA (score ≥ 75%)
+            </div>
           </div>
         </div>
 
@@ -253,9 +256,10 @@ interface SinistreItem {
         <!-- Dernières analyses -->
         <div class="card">
           <div class="card-hd">
-            <h3>Dernières Analyses</h3>
-            <button class="btn-sm" (click)="tab='analyse'">+ Nouvelle</button>
+            <h3>{{ dernieres.length>0 ? 'Dernières Analyses' : 'Sinistres récents' }}</h3>
+            <button class="btn-sm" (click)="tab='analyse'">+ Analyser</button>
           </div>
+          <!-- ML analyses déjà effectuées -->
           <div *ngIf="dernieres.length>0">
             <div class="rec-row" *ngFor="let a of dernieres" (click)="openFromDash(a)">
               <div class="rec-num">{{ a.numSinistre }}</div>
@@ -264,8 +268,17 @@ interface SinistreItem {
               <span class="oval" [ngClass]="oc(a.score||0)">{{ ol(a.score||0) }}</span>
             </div>
           </div>
-          <div class="empty-box" *ngIf="dernieres.length===0">
-            <p>Aucune analyse effectuée</p>
+          <!-- Sinistres chargés depuis la DB (avant toute analyse) -->
+          <div *ngIf="dernieres.length===0 && sinistres.length>0">
+            <div class="rec-row" *ngFor="let s of sinistres.slice(0,5)" (click)="analyseRow(s)">
+              <div class="rec-num">{{ s.numSinistre }}</div>
+              <div class="rec-bar" style="flex:1"><div style="width:0%"></div></div>
+              <span class="na-txt" style="font-size:.7rem;white-space:nowrap">Non analysé</span>
+              <span class="oval oc-ok" style="font-size:.62rem;cursor:pointer">→ Analyser</span>
+            </div>
+          </div>
+          <div class="empty-box" *ngIf="dernieres.length===0 && sinistres.length===0">
+            <p>Chargement des sinistres...</p>
             <button class="btn-blue" (click)="tab='analyse'">Analyser →</button>
           </div>
         </div>
@@ -663,7 +676,7 @@ interface SinistreItem {
             <div class="mhd-name">ARIA</div>
             <div class="mhd-sub">
               <span class="mhd-dot"></span>
-              {{ resultat ? 'Dossier '+resultat.num_sinistre+' — '+(resultat.score_risque|number:"1.0-0")+'%' : 'En attente d\'un dossier' }}
+              {{ ariaSubtitle() }}
             </div>
           </div>
         </div>
@@ -1294,11 +1307,7 @@ export class AgentEspaceComponent implements OnInit, OnDestroy, AfterViewChecked
   bellOpen : boolean  = false;
   usrOpen  : boolean  = false;
   newAlert : boolean  = false;
-  alertes  : Alerte[] = [
-    { id:'1', num:'20033100731', score:83, time:'Il y a 2 min',  lue:false },
-    { id:'2', num:'20024500192', score:91, time:'Il y a 15 min', lue:false },
-    { id:'3', num:'20019873421', score:76, time:'Il y a 1h',     lue:true  },
-  ];
+  alertes  : Alerte[] = [];
   get unread(): number { return this.alertes.filter(a => !a.lue).length; }
 
   // ── Chat ──────────────────────────────────────────────────────────────────
@@ -1314,19 +1323,7 @@ export class AgentEspaceComponent implements OnInit, OnDestroy, AfterViewChecked
     '📊 Résume les points clés du dossier'
   ];
 
-  private exData: any = {
-    MONTANT_EVALUATION:45000,DELAI_DECLARATION:8,DELAI_OUVERTURE:1,
-    DELAI_CONTRAT_SINISTRE:5,NOMBRE_BLESSES:1,NOMBRE_DECES:0,
-    AGE_VEHICULE:12,DUREE_CONTRAT:365,RATIO_VALEUR_PUISSANCE:850,
-    KLM_TOTAL:650,KLM_MAX:650,MONTANT_REMORQUAGE_TOTAL:380,
-    JOURS_REMPLACEMENT_TOTAL:0,MOIS_SURVENANCE:3,JOUR_SEMAINE:6,
-    cumul_reglement:0,Total_SAP_Final:42000,PUISSANCE:90,VALEUR_VENALE:18000,
-    ACCIDENT_WEEKEND:1,DECLARATION_TARDIVE:1,FLAG_VICTIME:1,
-    CONTRAT_RECENT_SINISTRE:1,MONTANT_EVALUATION_SUSPECT:1,
-    ZONE_SINISTRALITE_ELEVEE:1,DISTANCE_REMORQUAGE_SUSPECTE:1,
-    GOUVERNORAT_ENC:23,NATURE_SINISTRE_ENC:1,TYPE_SINISTRE_ENC:3,
-    LIB_ETAT_SINISTRE_ENC:2,SEGMENT_ENC:1,usage_ENC:1,CODE_TYPE_CONTRAT_ENC:0
-  };
+  private currentSinistreData: any = {};
 
   constructor(
     private svc   : FraudService,
@@ -1345,17 +1342,11 @@ export class AgentEspaceComponent implements OnInit, OnDestroy, AfterViewChecked
       };
     }
     this.svc.healthCheck().subscribe({
-      next : () => { this.apiOk = true; this.loadStats(); },
+      next : () => { this.apiOk = true; },
       error: () =>   this.apiOk = false
     });
-    const t = setTimeout(() => {
-      const n = '2002' + Math.floor(Math.random() * 9000000 + 1000000);
-      const s = Math.floor(Math.random() * 15 + 82);
-      this.alertes.unshift({ id: Date.now().toString(), num: n, score: s, time: 'À l\'instant', lue: false });
-      this.newAlert = true;
-      this.cdr.detectChanges();
-    }, 5000);
-    this.timers.push(t);
+    // Charger les sinistres depuis Spring Boot au démarrage
+    this.loadList();
   }
 
   ngOnDestroy(): void { this.timers.forEach(t => clearTimeout(t)); }
@@ -1373,33 +1364,37 @@ export class AgentEspaceComponent implements OnInit, OnDestroy, AfterViewChecked
   logout(): void { localStorage.removeItem('currentUser'); this.router.navigate(['/login']); }
 
   loadStats(): void {
-    this.svc.getSinistres(0, 1).subscribe({
-      next: (d) => { this.totalSinistres = d.totalElements || 0; this.totalPages = d.totalPages || 1; }
-    });
-    this.sinistresEleves = 1902;
+    // totalSinistres and totalPages are updated by loadList()
   }
 
   loadList(): void {
     this.svc.getSinistres(this.page, 20).subscribe({
       next: (d) => {
         this.totalSinistres = d.totalElements || 0;
-        this.totalPages     = d.totalPages    || 1;
+        this.totalPages     = Math.ceil((d.totalElements || 0) / 20) || 1;
         this.sinistres = (d.sinistres || []).map((s: any) => ({
-          numSinistre      : s.numSinistre,
-          gouvernorat      : s.gouvernorat       || '—',
-          natureSinistre   : s.natureSinistre    || '—',
-          montantEvaluation: s.montantEvaluation || 0,
-          libEtatSinistre  : s.libEtatSinistre   || '—',
-          nombreBlesses    : s.nombreBlesses     || 0,
-          score            : undefined,
-          decision         : undefined,
-          motifs           : []
+          numSinistre        : s.numSinistre,
+          gouvernorat        : s.gouvernorat        || '—',
+          natureSinistre     : s.natureSinistre     || '—',
+          montantEvaluation  : s.montantEvaluation  || 0,
+          libEtatSinistre    : s.libEtatSinistre    || '—',
+          nombreBlesses      : s.nombreBlesses      || 0,
+          nombreDeces        : s.nombreDeces        || 0,
+          codeResponsabilite : s.codeResponsabilite || '',
+          score              : undefined,
+          decision           : undefined,
+          motifs             : []
         }));
+
+        this.cdr.detectChanges();
+      },
+      error: () => {
+        console.error('[Spring Boot] Impossible de charger les sinistres');
       }
     });
   }
 
-  goPage(d: number): void { this.page += d; this.loadList(); }
+  goPage(delta: number): void { this.page += delta; this.loadList(); }
 
   doSearch(): void {
     if (this.searchQ.trim()) { this.numInput = this.searchQ; this.tab = 'analyse'; this.analyser(); }
@@ -1411,24 +1406,25 @@ export class AgentEspaceComponent implements OnInit, OnDestroy, AfterViewChecked
     const t1 = setTimeout(() => { this.lStep = 1; this.cdr.detectChanges(); }, 800);
     const t2 = setTimeout(() => { this.lStep = 2; this.cdr.detectChanges(); }, 1600);
     this.timers.push(t1, t2);
+    // Essayer de récupérer les données depuis Spring Boot, puis envoyer à FastAPI
+    // Si Spring Boot échoue, FastAPI ira chercher les données directement dans la DB
     this.svc.getSinistreML(this.numInput).subscribe({
-      next: (s) => this.sendML({
-        NUM_SINISTRE:this.numInput,
-        MONTANT_EVALUATION:s.montantEvaluation||0,DELAI_DECLARATION:5,
-        DELAI_OUVERTURE:1,DELAI_CONTRAT_SINISTRE:5,
-        NOMBRE_BLESSES:s.nombreBlesses||0,NOMBRE_DECES:s.nombreDeces||0,
-        AGE_VEHICULE:3,DUREE_CONTRAT:365,RATIO_VALEUR_PUISSANCE:250,
-        KLM_TOTAL:45,KLM_MAX:30,MONTANT_REMORQUAGE_TOTAL:0,
-        JOURS_REMPLACEMENT_TOTAL:0,MOIS_SURVENANCE:3,JOUR_SEMAINE:6,
-        cumul_reglement:s.cumulReglement||0,Total_SAP_Final:s.totalSapFinal||0,
-        PUISSANCE:90,VALEUR_VENALE:18000,ACCIDENT_WEEKEND:0,DECLARATION_TARDIVE:0,
-        FLAG_VICTIME:(s.nombreBlesses||0)>0?1:0,CONTRAT_RECENT_SINISTRE:0,
-        MONTANT_EVALUATION_SUSPECT:(s.montantEvaluation||0)>10000?1:0,
-        ZONE_SINISTRALITE_ELEVEE:0,DISTANCE_REMORQUAGE_SUSPECTE:0,
-        GOUVERNORAT_ENC:2,NATURE_SINISTRE_ENC:1,TYPE_SINISTRE_ENC:0,
-        LIB_ETAT_SINISTRE_ENC:1,SEGMENT_ENC:1,usage_ENC:0,CODE_TYPE_CONTRAT_ENC:1
-      }),
-      error: () => this.sendML({ NUM_SINISTRE: this.numInput, ...this.exData })
+      next: (s) => {
+        const payload = {
+          NUM_SINISTRE        : this.numInput,
+          MONTANT_EVALUATION  : s.montantEvaluation  || 0,
+          NOMBRE_BLESSES      : s.nombreBlesses      || 0,
+          NOMBRE_DECES        : s.nombreDeces         || 0,
+          CODE_RESPONSABILITE : s.codeResponsabilite  || '',
+          NATURE_SINISTRE     : s.natureSinistre      || '',
+          LIB_ETAT_SINISTRE   : s.libEtatSinistre     || '',
+          NUM_CONTRAT         : s.numContrat           || '',
+        };
+        this.currentSinistreData = payload;
+        this.sendML(payload);
+      },
+      // Si Spring Boot retourne 404 ou erreur, FastAPI cherche les données dans la DB
+      error: () => this.sendML({ NUM_SINISTRE: this.numInput })
     });
   }
 
@@ -1444,9 +1440,13 @@ export class AgentEspaceComponent implements OnInit, OnDestroy, AfterViewChecked
   }
 
   private sendML(p: any): void {
+    this.currentSinistreData = { ...this.currentSinistreData, ...p };
     this.svc.predire(p).subscribe({
       next: (r) => {
         this.resultat = r; this.loading = false; this.nbAnalyses++;
+        if (r.donnees_sinistre) {
+          this.currentSinistreData = { ...this.currentSinistreData, ...r.donnees_sinistre };
+        }
         this.dernieres.unshift({ numSinistre: r.num_sinistre, score: r.score_risque });
         if (this.dernieres.length > 10) this.dernieres.pop();
         const idx = this.sinistres.findIndex(s => s.numSinistre === r.num_sinistre);
@@ -1455,6 +1455,7 @@ export class AgentEspaceComponent implements OnInit, OnDestroy, AfterViewChecked
           this.sinistres[idx].suspect = r.est_suspect;
           this.sinistres[idx].motifs  = this.buildMotifs(r);
         }
+        if (r.score_risque >= 65) this.sinistresEleves++;
         if (r.score_risque >= 75) {
           this.alertes.unshift({ id: Date.now().toString(), num: r.num_sinistre,
             score: Math.round(r.score_risque), time: 'À l\'instant', lue: false });
@@ -1462,7 +1463,15 @@ export class AgentEspaceComponent implements OnInit, OnDestroy, AfterViewChecked
         }
         this.msgs = []; this.cdr.detectChanges();
       },
-      error: () => { this.loading = false; alert('Erreur FastAPI — vérifiez que le serveur Python tourne sur :8000'); }
+      error: () => {
+        this.loading = false;
+        this.msgs.push({
+          role: 'assistant',
+          content: 'Le serveur d\'analyse IA (FastAPI) est hors ligne. Lancez le backend Python avec start.bat.',
+          timestamp: new Date()
+        });
+        this.cdr.detectChanges();
+      }
     });
   }
 
@@ -1495,11 +1504,25 @@ export class AgentEspaceComponent implements OnInit, OnDestroy, AfterViewChecked
     const m: ChatMessage = { role:'user', content:this.msgInp.trim(), timestamp:new Date() };
     this.msgs.push(m);
     const txt = this.msgInp.trim(); this.msgInp = ''; this.typing = true;
-    this.svc.chatSinistre(this.resultat.num_sinistre, txt, this.msgs.slice(-6),
-      { ...this.exData, score_risque: this.resultat.score_risque }).subscribe({
-      next : (r) => { this.msgs.push({ role:'assistant', content:r.reponse, timestamp:new Date() }); this.typing = false; },
-      error: ()  => { this.msgs.push({ role:'assistant', content:'Erreur de connexion.', timestamp:new Date() }); this.typing = false; }
+    // Passer les vraies données du sinistre + le score déjà calculé
+    const contexte = { ...this.currentSinistreData, score_risque: this.resultat.score_risque };
+    this.svc.chatSinistre(this.resultat.num_sinistre, txt, this.msgs.slice(-6), contexte).subscribe({
+      next : (r) => {
+        this.msgs.push({ role:'assistant', content:r.reponse, timestamp:new Date() });
+        this.typing = false; this.cdr.detectChanges();
+      },
+      error: ()  => {
+        this.msgs.push({ role:'assistant', content:"Le service ARIA est momentanément indisponible.", timestamp:new Date() });
+        this.typing = false; this.cdr.detectChanges();
+      }
     });
+  }
+
+  ariaSubtitle(): string {
+    if (this.resultat) {
+      return 'Dossier ' + this.resultat.num_sinistre + ' — ' + Math.round(this.resultat.score_risque) + '%';
+    }
+    return "En attente d'un dossier";
   }
 
   sendSug(s: string): void { this.msgInp = s; this.sendMsg(null); }
@@ -1523,15 +1546,19 @@ export class AgentEspaceComponent implements OnInit, OnDestroy, AfterViewChecked
 
   nvCls(n: string): string {
     switch(n?.toUpperCase()){
-      case'TRES ELEVE':return'nv-tres'; case'ELEVE':return'nv-eleve';
-      case'MODERE':return'nv-mod'; default:return'nv-faib';
+      case 'CRITIQUE': return 'oc-red';
+      case 'ÉLEVÉ':    return 'oc-yel';
+      case 'MODÉRÉ':   return 'oc-yel';
+      default:         return 'oc-ok';
     }
   }
 
   nvIco(n: string): string {
     switch(n?.toUpperCase()){
-      case'TRES ELEVE':return'🔴'; case'ELEVE':return'🟠';
-      case'MODERE':return'🟡'; default:return'🟢';
+      case 'CRITIQUE': return '🔴';
+      case 'ÉLEVÉ':    return '🟠';
+      case 'MODÉRÉ':   return '🟡';
+      default:         return '🟢';
     }
   }
 
