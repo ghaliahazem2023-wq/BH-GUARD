@@ -709,8 +709,11 @@ interface SinistreItem {
               <strong [style.color]="sc(resultat.score_risque)">{{ resultat.score_risque|number:'1.0-0' }}%</strong>.
               Posez vos questions.
             </span>
-            <span *ngIf="!resultat">
-              Analysez d'abord un sinistre pour activer le contexte IA.
+            <span *ngIf="!resultat && !apiOk" style="color:#dc2626">
+              ⚠️ FastAPI est hors ligne. Lancez <strong>DEMARRER.bat</strong> pour démarrer tous les services.
+            </span>
+            <span *ngIf="!resultat && apiOk">
+              Entrez un numéro de sinistre dans l'onglet <strong>Analyse</strong> pour activer ARIA.
             </span>
             <span class="m-time">maintenant</span>
           </div>
