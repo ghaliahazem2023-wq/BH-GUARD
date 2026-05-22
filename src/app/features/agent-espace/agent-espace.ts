@@ -268,16 +268,17 @@ interface SinistreItem {
               <span class="oval" [ngClass]="oc(a.score||0)">{{ ol(a.score||0) }}</span>
             </div>
           </div>
-          <!-- Sinistres chargés depuis la DB (avant toute analyse) -->
-          <div *ngIf="dernieres.length===0 && sinistres.length>0">
-            <div class="rec-row" *ngFor="let s of sinistres.slice(0,5)" (click)="analyseRow(s)">
+          <!-- Sinistres à risque élevé depuis la DB (avant toute analyse ML) -->
+          <div *ngIf="dernieres.length===0 && dashboardSample.length>0">
+            <div class="rec-row" *ngFor="let s of dashboardSample" (click)="analyseRow(s)">
               <div class="rec-num">{{ s.numSinistre }}</div>
-              <div class="rec-bar" style="flex:1"><div style="width:0%"></div></div>
-              <span class="na-txt" style="font-size:.7rem;white-space:nowrap">Non analysé</span>
+              <div class="rec-nat" style="font-size:.68rem;color:#64748b;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">
+                {{ s.natureSinistre }} · {{ s.montantEvaluation|number:'1.0-0' }} TND
+              </div>
               <span class="oval oc-ok" style="font-size:.62rem;cursor:pointer">→ Analyser</span>
             </div>
           </div>
-          <div class="empty-box" *ngIf="dernieres.length===0 && sinistres.length===0">
+          <div class="empty-box" *ngIf="dernieres.length===0 && dashboardSample.length===0">
             <p>Chargement des sinistres...</p>
             <button class="btn-blue" (click)="tab='analyse'">Analyser →</button>
           </div>
@@ -1253,6 +1254,7 @@ export class AgentEspaceComponent implements OnInit, OnDestroy, AfterViewChecked
   nbAnalyses     : number = 0;
   totalPages     : number = 1;
   page           : number = 0;
+  dashboardSample: any[]  = [];
 
   govs = [
     { n:'Tunis',   p:78, c:'#1a56db' },
@@ -1348,6 +1350,7 @@ export class AgentEspaceComponent implements OnInit, OnDestroy, AfterViewChecked
     this.pollApi();
     // Charger les sinistres depuis Spring Boot au démarrage
     this.loadList();
+    this.loadDashboardSample();
   }
 
   ngOnDestroy(): void { this.timers.forEach(t => clearTimeout(t)); }
@@ -1413,6 +1416,31 @@ export class AgentEspaceComponent implements OnInit, OnDestroy, AfterViewChecked
       error: () => {
         // Spring Boot pas encore prêt — réessayer dans 4 secondes
         if (this.page === 0 && this.sinistres.length === 0) this.pollSpring();
+      }
+    });
+  }
+
+  private loadDashboardSample(): void {
+    // Page 100 contient des sinistres CORPOREL avec de vrais risques
+    this.svc.getSinistres(100, 10).subscribe({
+      next: (d) => {
+        this.dashboardSample = (d.sinistres || [])
+          .filter((s: any) => s.montantEvaluation >= 10000 || s.nombreDeces > 0 || s.nombreBlesses > 1)
+          .slice(0, 5)
+          .map((s: any) => ({
+            numSinistre       : s.numSinistre,
+            gouvernorat       : s.gouvernorat       || '—',
+            natureSinistre    : s.natureSinistre    || '—',
+            montantEvaluation : s.montantEvaluation || 0,
+            libEtatSinistre   : s.libEtatSinistre   || '—',
+            nombreBlesses     : s.nombreBlesses     || 0,
+            nombreDeces       : s.nombreDeces       || 0,
+            codeResponsabilite: s.codeResponsabilite || '',
+            score             : undefined,
+            decision          : undefined,
+            motifs            : []
+          }));
+        this.cdr.detectChanges();
       }
     });
   }
