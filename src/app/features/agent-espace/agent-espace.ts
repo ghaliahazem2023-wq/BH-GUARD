@@ -1341,10 +1341,8 @@ export class AgentEspaceComponent implements OnInit, OnDestroy, AfterViewChecked
         role  : u.role   || 'Agent Anti-Fraude'
       };
     }
-    this.svc.healthCheck().subscribe({
-      next : () => { this.apiOk = true; },
-      error: () =>   this.apiOk = false
-    });
+    // Polling automatique jusqu'à ce que FastAPI soit en ligne
+    this.pollApi();
     // Charger les sinistres depuis Spring Boot au démarrage
     this.loadList();
   }
@@ -1365,6 +1363,27 @@ export class AgentEspaceComponent implements OnInit, OnDestroy, AfterViewChecked
 
   loadStats(): void {
     // totalSinistres and totalPages are updated by loadList()
+  }
+
+  private pollApi(): void {
+    this.svc.healthCheck().subscribe({
+      next: () => {
+        this.apiOk = true;
+        this.cdr.detectChanges();
+      },
+      error: () => {
+        this.apiOk = false;
+        this.cdr.detectChanges();
+        // Réessayer dans 5 secondes si toujours hors ligne
+        const t = setTimeout(() => this.pollApi(), 5000);
+        this.timers.push(t);
+      }
+    });
+  }
+
+  private pollSpring(): void {
+    const t = setTimeout(() => this.loadList(), 4000);
+    this.timers.push(t);
   }
 
   loadList(): void {
@@ -1389,7 +1408,8 @@ export class AgentEspaceComponent implements OnInit, OnDestroy, AfterViewChecked
         this.cdr.detectChanges();
       },
       error: () => {
-        console.error('[Spring Boot] Impossible de charger les sinistres');
+        // Spring Boot pas encore prêt — réessayer dans 4 secondes
+        if (this.page === 0 && this.sinistres.length === 0) this.pollSpring();
       }
     });
   }
