@@ -513,7 +513,7 @@ public class SinistreController {
     private Map<String, Object> buildFallback(String numSinistre, Sinistre s) {
         int score    = scoreHeuristique(s);
         boolean susp = score >= 75;
-        String niveau = score >= 75 ? "CRITIQUE" : score >= 40 ? "INVESTIGATION" : "CONFORME";
+        String niveau = score >= 75 ? "CRITIQUE" : score >= 40 ? "RISQUE_MODÉRÉ" : "CONFORME";
 
         List<String> flags = buildFlags(s);
 

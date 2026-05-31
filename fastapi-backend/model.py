@@ -143,7 +143,7 @@ class FraudModel:
         est_suspect = score_final >= 75
 
         if   score_final >= 75: niveau = "CRITIQUE"
-        elif score_final >= 40: niveau = "INVESTIGATION"
+        elif score_final >= 40: niveau = "RISQUE_MODÉRÉ"
         else:                   niveau = "CONFORME"
 
         flags = self._flags(data)
@@ -240,7 +240,7 @@ class FraudModel:
             except (ValueError, TypeError):
                 score = score_regle(data)
 
-            niveau            = "CRITIQUE" if score >= 75 else "INVESTIGATION" if score >= 40 else "CONFORME"
+            niveau            = "CRITIQUE" if score >= 75 else "RISQUE_MODÉRÉ" if score >= 40 else "CONFORME"
             flags             = data.get("flags_detectes") or []
             flags_str         = ", ".join(flags) if isinstance(flags, list) and flags else "Aucun signal détecté"
             explication       = self._get(data, "explication_ia")
@@ -338,7 +338,7 @@ class FraudModel:
         except (ValueError, TypeError):
             score = score_regle(data)
 
-        niveau = "CRITIQUE" if score >= 75 else "INVESTIGATION" if score >= 40 else "CONFORME"
+        niveau = "CRITIQUE" if score >= 75 else "RISQUE_MODÉRÉ" if score >= 40 else "CONFORME"
 
         date_surv   = self._fmt_date(self._get(data, "DATE_SURVENANCE",     "date_survenance"))
         date_decl   = self._fmt_date(self._get(data, "DATE_DECLARATION",    "date_declaration"))

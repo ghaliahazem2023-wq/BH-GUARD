@@ -63,7 +63,7 @@ public class AgentDashboardController {
                 if (totalScores > 0) {
                     repartition.add(mapOf("niveau", "Critique (≥75%)",       "count", critique,
                             "pct", Math.max(1L, Math.round(critique * 100.0 / totalScores)),      "color", "#dc2626"));
-                    repartition.add(mapOf("niveau", "Investigation (40-74%)", "count", investigation,
+                    repartition.add(mapOf("niveau", "Risque Modéré (40-74%)", "count", investigation,
                             "pct", Math.max(1L, Math.round(investigation * 100.0 / totalScores)), "color", "#d97706"));
                     repartition.add(mapOf("niveau", "Conforme (<40%)",        "count", conforme,
                             "pct", Math.round(conforme * 100.0 / totalScores),                    "color", "#16a34a"));
@@ -78,7 +78,7 @@ public class AgentDashboardController {
 
             result.put("dossiersCritiques",      critique);
             result.put("enInvestigation",        investigation);
-            result.put("sinistresInvestigation", investigation);
+            result.put("sinistresRisqueModere", investigation);
             result.put("conformes",              conforme);
             result.put("sinistresConformes",     conforme);
             result.put("repartitionRisque",      repartition);
@@ -214,7 +214,7 @@ public class AgentDashboardController {
                     e.put("mois",          safeStr(row.get("mois")));
                     e.put("total",         toLong(row.get("total")));
                     e.put("critiques",     toLong(row.get("critiques")));
-                    e.put("investigation", toLong(row.get("investigation")));
+                    e.put("risqueModere", toLong(row.get("investigation")));
                     e.put("conformes",     toLong(row.get("conformes")));
                     evolutionMensuelle.add(e);
                 }

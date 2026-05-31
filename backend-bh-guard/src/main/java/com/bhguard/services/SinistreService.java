@@ -80,7 +80,7 @@ public class SinistreService {
 
     public String calculerNiveau(int score) {
         if (score >= 75) return "CRITIQUE";
-        if (score >= 40) return "INVESTIGATION";
+        if (score >= 40) return "RISQUE_MODÉRÉ";
         return "CONFORME";
     }
 
