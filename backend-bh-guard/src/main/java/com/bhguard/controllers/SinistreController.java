@@ -314,26 +314,32 @@ public class SinistreController {
             if (rawBody != null && rawBody.get("score_risque") instanceof Number)
                 scoreFastApi = ((Number) rawBody.get("score_risque")).intValue();
 
-            // Déterminer le score final : base BD prime sur FastAPI
-            int scoreFinal;
-            if (scoreBase > 0) {
-                scoreFinal = scoreBase;
-                System.out.println("[BHGuard] Score base BD utilisé: " + scoreFinal + " (FastAPI ignoré: " + scoreFastApi + ")");
-            } else if (scoreFastApi > 0) {
-                scoreFinal = scoreFastApi;
-                sauvegarderScore(numSinistre, scoreFinal, true);
-                System.out.println("[BHGuard] Score FastAPI fallback: " + scoreFinal + " (base vide)");
-            } else {
-                int heuristic = sinistre != null ? scoreHeuristique(sinistre) : 0;
-                scoreFinal = heuristic;
-                if (heuristic > 0) sauvegarderScore(numSinistre, heuristic, false);
-                System.out.println("[BHGuard] Score heuristique fallback: " + scoreFinal);
-            }
+            // ── Score heuristique Java (règles métier) ──────────────────
+            int scoreFormule = sinistre != null ? scoreHeuristique(sinistre) : scoreBase;
+            if (scoreFormule <= 0) scoreFormule = scoreBase;
 
-            if (scoreFinal <= 0 && sinistre != null)
+            // ── Score ML FastAPI ────────────────────────────────────────
+            int scoreML = scoreFastApi > 0 ? scoreFastApi : 0;
+
+            // ── Score global composite (2×Formule + 1×ML) / 3 ──────────
+            int scoreGlobal;
+            if (scoreML > 0) {
+                scoreGlobal = (int) Math.round((2.0 * scoreFormule + 1.0 * scoreML) / 3.0);
+            } else {
+                scoreGlobal = scoreFormule;
+            }
+            scoreGlobal = Math.min(100, Math.max(0, scoreGlobal));
+
+            if (scoreGlobal <= 0 && sinistre != null)
                 return ResponseEntity.ok(buildFallback(numSinistre, sinistre));
 
-            // Construire la réponse depuis FastAPI (flags + explication) + score BD
+            System.out.println("[BHGuard] scoreFormule=" + scoreFormule
+                + " scoreML=" + scoreML
+                + " scoreGlobal=" + scoreGlobal);
+
+            String niveauGlobal = sinistreService.calculerNiveau(scoreGlobal);
+
+            // Construire la réponse depuis FastAPI (flags + explication) + score composite
             Map<String, Object> body = new LinkedHashMap<>();
             if (rawBody != null) rawBody.forEach((k, v) -> body.put(String.valueOf(k), v));
 
@@ -342,13 +348,13 @@ public class SinistreController {
                 if (sinistre != null) body.put("flags_detectes", buildFlags(sinistre));
             }
 
-            // Écraser le score FastAPI par le score source de vérité
-            String niveauFinal = sinistreService.calculerNiveau(scoreFinal);
-            body.put("score_risque",  scoreFinal);
-            body.put("niveau_risque", niveauFinal);
-            body.put("est_suspect",   scoreFinal >= 65);
-            body.put("num_sinistre",  numSinistre);
-            System.out.println("[BHGuard] Réponse finale score_risque=" + scoreFinal + " niveau=" + niveauFinal);
+            // Scores
+            body.put("score_risque",   scoreGlobal);
+            body.put("score_formule",  scoreFormule);
+            body.put("score_ml",       scoreML);
+            body.put("niveau_risque",  niveauGlobal);
+            body.put("est_suspect",    scoreGlobal >= 65);
+            body.put("num_sinistre",   numSinistre);
 
             return ResponseEntity.ok(body);
 
@@ -511,7 +517,9 @@ public class SinistreController {
     }
 
     private Map<String, Object> buildFallback(String numSinistre, Sinistre s) {
-        int score    = scoreHeuristique(s);
+        int score        = scoreHeuristique(s);
+        int scoreFormule = score;
+        int scoreGlobal  = scoreFormule;
         boolean susp = score >= 75;
         String niveau = score >= 75 ? "CRITIQUE" : score >= 40 ? "RISQUE_MODÉRÉ" : "CONFORME";
 
@@ -536,7 +544,9 @@ public class SinistreController {
 
         Map<String, Object> result = new LinkedHashMap<>();
         result.put("num_sinistre",   numSinistre);
-        result.put("score_risque",   score);
+        result.put("score_risque",   scoreGlobal);
+        result.put("score_formule",  scoreFormule);
+        result.put("score_ml",       0);
         result.put("est_suspect",    susp);
         result.put("niveau_risque",  niveau);
         result.put("flags_detectes", flags);
