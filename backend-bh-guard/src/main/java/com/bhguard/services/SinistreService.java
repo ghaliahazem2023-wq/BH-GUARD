@@ -91,24 +91,17 @@ public class SinistreService {
                                             String niveau, String search) {
         JdbcTemplate jdbc = new JdbcTemplate(sinistreDataSource);
         int offset = page * size;
+        
 
         StringBuilder where = new StringBuilder("1=1");
         List<Object> argsList = new ArrayList<>();
 
-        // Filtre niveau (basé sur SCORE_RISQUE persisté en base)
+        // Filtre niveau (basé sur SCORE_GLOBAL / SCORE_RISQUE persisté en base)
         switch (niveau == null ? "" : niveau) {
-            case "critique":
-                where.append(" AND ISNULL(SCORE_RISQUE, 0) >= 75");
-                break;
-            case "investigation":
-                where.append(" AND ISNULL(SCORE_RISQUE, 0) >= 40 AND ISNULL(SCORE_RISQUE, 0) < 75");
-                break;
-            case "conforme":
-                where.append(" AND ISNULL(SCORE_RISQUE, 0) < 40");
-                break;
-            case "non-analyse":
-                where.append(" AND (SCORE_RISQUE IS NULL OR SCORE_RISQUE <= 0)");
-                break;
+            case "critique"     -> where.append(" AND ISNULL(SCORE_GLOBAL, ISNULL(SCORE_RISQUE, 0)) >= 75");
+            case "investigation"-> where.append(" AND ISNULL(SCORE_GLOBAL, ISNULL(SCORE_RISQUE, 0)) >= 40 AND ISNULL(SCORE_GLOBAL, ISNULL(SCORE_RISQUE, 0)) < 75");
+            case "conforme"     -> where.append(" AND ISNULL(SCORE_GLOBAL, ISNULL(SCORE_RISQUE, 0)) < 40");
+            case "non-analyse"  -> where.append(" AND (SCORE_GLOBAL IS NULL OR SCORE_GLOBAL <= 0)");
         }
 
         // Filtre gouvernorat
@@ -140,10 +133,12 @@ public class SinistreService {
         }
 
         String orderBy = hasScoreCol
-            ? " ORDER BY ISNULL(SCORE_RISQUE, 0) DESC, NUM_SINISTRE DESC "
+            ? " ORDER BY ISNULL(SCORE_GLOBAL, ISNULL(SCORE_RISQUE, 0)) DESC, NUM_SINISTRE DESC "
             : " ORDER BY NUM_SINISTRE DESC ";
 
-        String scoreSelect = hasScoreCol ? ", SCORE_RISQUE " : ", NULL AS SCORE_RISQUE ";
+        String scoreSelect = hasScoreCol
+            ? ", SCORE_RISQUE, ISNULL(SCORE_GLOBAL, SCORE_RISQUE) AS scoreGlobal "
+            : ", NULL AS SCORE_RISQUE, NULL AS scoreGlobal ";
 
         String countSql = "SELECT COUNT_BIG(*) FROM sinistres WHERE " + whereStr;
         String dataSql  =
@@ -219,6 +214,9 @@ public class SinistreService {
             dto.put("scoreEstime",  estimated);
             dto.put("niveauRisque", calculerNiveau((int) effectiveScore));
             dto.put("estSuspect",   effectiveScore >= 65);
+            dto.put("scoreGlobal",  row.get("scoreGlobal"));
+            dto.put("scoreRisque",  row.get("scoreGlobal") != null
+                ? row.get("scoreGlobal") : dto.get("scoreRisque"));
             return dto;
         }).collect(Collectors.toList());
 
