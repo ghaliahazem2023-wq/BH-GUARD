@@ -215,8 +215,6 @@ public class SinistreService {
             dto.put("niveauRisque", calculerNiveau((int) effectiveScore));
             dto.put("estSuspect",   effectiveScore >= 65);
             dto.put("scoreGlobal",  row.get("scoreGlobal"));
-            dto.put("scoreRisque",  row.get("scoreGlobal") != null
-                ? row.get("scoreGlobal") : dto.get("scoreRisque"));
             return dto;
         }).collect(Collectors.toList());
 

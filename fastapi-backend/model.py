@@ -192,7 +192,7 @@ class FraudModel:
         return "Non renseigné" if v == "—" else v
 
     def _fmt_montant(self, v: float) -> str:
-        return f"{v:,.0f}" if v and v > 0 else "Non renseigné"
+        return f"{v:.0f}" if v and v > 0 else "Non renseigné"
 
     def _get(self, data: Dict, *keys) -> str:
         for k in keys:
@@ -220,7 +220,6 @@ class FraudModel:
             date_decl   = self._fmt_date(self._get(data, "DATE_DECLARATION", "date_declaration"))
             date_ouv    = self._fmt_date(self._get(data, "DATE_OUVERTURE",   "date_ouverture"))
             etat        = self._get(data, "LIB_ETAT_SINISTRE",    "lib_etat_sinistre")
-            # ── usage : minuscule en premier (nom exact colonne SQL Server) ──
             usage_raw   = self._get(data, "usage", "USAGE", "LIB_USAGE")
             usage       = self._USAGE_MAP.get(usage_raw.upper(), usage_raw) if usage_raw != "—" else "—"
             code_type   = self._get(data, "CODE_TYPE_CONTRAT",    "code_type_contrat")
@@ -231,7 +230,6 @@ class FraudModel:
             cumul_reg   = self._get(data, "cumul_reglement",      "CUMUL_REGLEMENT")
             total_sap   = self._get(data, "Total_SAP_Final",      "total_sap_final", "TOTAL_SAP")
 
-            # ── Debug ──
             print(f"[MISTRAL] usage_raw={usage_raw} | usage={usage} | contrat={contrat} | code_type={code_type}")
 
             score_ctx = data.get("score_risque")
@@ -264,45 +262,41 @@ class FraudModel:
                 f"Tu as accès aux données COMPLÈTES et VÉRIFIÉES du sinistre {num}.\n"
                 f"RÈGLE ABSOLUE : Tu dois utiliser EXACTEMENT les valeurs fournies ci-dessous.\n"
                 f"INTERDIT de dire 'information non disponible' ou 'je ne sais pas' si la valeur est présente.\n\n"
-                f"══ 📋 IDENTIFICATION ══\n"
+                f"══ IDENTIFICATION ══\n"
                 f"N° Sinistre       : {num}\n"
                 f"N° Contrat        : {d(contrat)}\n"
                 f"Code Type Contrat : {d(code_type)}\n"
                 f"Année Exercice    : {d(annee)}\n\n"
-                f"══ 🚗 VÉHICULE & USAGE ══\n"
+                f"══ VÉHICULE & USAGE ══\n"
                 f"Usage du véhicule : {d(usage)}\n"
                 f"Code usage brut   : {usage_raw}\n"
                 f"Type Sinistre     : {d(type_sin)}\n"
                 f"Nature Sinistre   : {d(nature)}\n"
                 f"État dossier      : {d(etat)}\n\n"
-                f"══ 📍 LOCALISATION ══\n"
+                f"══ LOCALISATION ══\n"
                 f"Gouvernorat       : {d(gouvernorat)}\n"
                 f"Lieu accident     : {d(lieu)}\n\n"
-                f"══ 📅 DATES ══\n"
+                f"══ DATES ══\n"
                 f"Date survenance   : {d(date_surv)}\n"
                 f"Date déclaration  : {d(date_decl)}\n"
                 f"Date ouverture    : {d(date_ouv)}\n"
                 f"Délai déclaration : {delai_str}\n\n"
-                f"══ 💰 FINANCIER ══\n"
+                f"══ FINANCIER ══\n"
                 f"Montant évaluation: {self._fmt_montant(montant)} TND\n"
                 f"Cumul règlement   : {d(cumul_reg)} TND\n"
                 f"Total SAP Final   : {d(total_sap)} TND\n"
                 f"Responsabilité    : {d(code_resp)}\n\n"
-                f"══ 🏥 VICTIMES ══\n"
+                f"══ VICTIMES ══\n"
                 f"Nombre blessés    : {blesses}\n"
                 f"Nombre décès      : {deces}\n\n"
-                f"══ 🤖 ANALYSE IA ══\n"
+                f"══ ANALYSE IA ══\n"
                 f"Score risque ML   : {score}%\n"
                 f"Niveau            : {niveau}\n"
                 f"Signaux détectés  : {flags_str}\n"
                 f"Explication       : {d(explication)}\n\n"
-                f"══ 👤 DÉCISION AGENT ══\n"
+                f"══ DÉCISION AGENT ══\n"
                 f"Décision          : {d(decision)}\n"
                 f"Commentaire       : {d(commentaire_agent)}\n\n"
-                f"══ EXEMPLES DE RÉPONSES ATTENDUES ══\n"
-                f"Si on demande 'usage' ou 'véhicule' → répondre : 'L'usage du véhicule est {d(usage)} (code: {usage_raw})'\n"
-                f"Si on demande 'contrat' → répondre : 'N° Contrat {d(contrat)}, type {d(code_type)}'\n"
-                f"Si on demande 'date' → répondre avec date_surv={d(date_surv)}, date_decl={d(date_decl)}, délai={delai_str}\n"
                 f"Répondre toujours en français, de manière professionnelle et concise."
             )
 
@@ -344,7 +338,6 @@ class FraudModel:
         date_decl   = self._fmt_date(self._get(data, "DATE_DECLARATION",    "date_declaration"))
         gouvernorat = self._get(data, "GOUVERNORAT",         "gouvernorat")
         type_sin    = self._get(data, "TYPE_SINISTRE",       "type_sinistre")
-        # ── usage : minuscule en premier (nom exact colonne SQL Server) ──
         usage       = self._get(data, "usage",               "USAGE",             "LIB_USAGE")
         code_type   = self._get(data, "CODE_TYPE_CONTRAT",   "code_type_contrat")
         annee       = self._get(data, "ANNEE_EXERCICE",       "annee_exercice")
@@ -359,16 +352,15 @@ class FraudModel:
 
         print(f"[REGLE] usage résolu={usage} | code_type={code_type} | contrat={contrat}")
 
-        # ── Pourquoi ────────────────────────────────────────────────────────
         if any(w in ml for w in ["pourquoi", "why", "w 3leh", "3leh", "3lah",
                                    "expliquer", "explication", "fassarli", "fasser",
                                    "zid", "elaborate", "détailler"]):
             reasons = []
-            if montant < 10_000:   reasons.append(f"montant faible ({montant:,.0f} TND)")
-            elif montant < 20_000: reasons.append(f"montant modéré ({montant:,.0f} TND — +10 pts)")
-            elif montant < 50_000: reasons.append(f"montant significatif ({montant:,.0f} TND — +20 pts)")
-            elif montant < 100_000:reasons.append(f"montant élevé ({montant:,.0f} TND — +30 pts)")
-            else:                  reasons.append(f"montant très élevé ({montant:,.0f} TND — +40 pts)")
+            if montant < 10_000:   reasons.append(f"montant faible ({montant:.0f} TND)")
+            elif montant < 20_000: reasons.append(f"montant modéré ({montant:.0f} TND — +10 pts)")
+            elif montant < 50_000: reasons.append(f"montant significatif ({montant:.0f} TND — +20 pts)")
+            elif montant < 100_000:reasons.append(f"montant élevé ({montant:.0f} TND — +30 pts)")
+            else:                  reasons.append(f"montant très élevé ({montant:.0f} TND — +40 pts)")
             if deces == 0:   reasons.append("aucun décès déclaré (+0 pts)")
             else:            reasons.append(f"{deces} décès déclaré(s) (+30 pts)")
             if blesses <= 1: reasons.append("0 ou 1 blessé (+0 pts)")
@@ -383,17 +375,16 @@ class FraudModel:
                    else "Ce profil mérite une investigation.")
             )
 
-        # ── Calcul ──────────────────────────────────────────────────────────
         if any(w in ml for w in ["calculé", "calcul", "comment", "algorithme",
                                    "modèle", "model", "random forest", "rf", "ia", "intelligence"]):
             return (
                 "**Méthode de calcul du score de risque VeriAI :**\n\n"
                 "Le score (0–100) combine deux composantes :\n\n"
                 "**1. Règles métier (40%)**\n"
-                "• Montant ≥ 100 000 TND → +40 pts\n"
-                "• Montant ≥ 50 000 TND  → +30 pts\n"
-                "• Montant ≥ 20 000 TND  → +20 pts\n"
-                "• Montant ≥ 10 000 TND  → +10 pts\n"
+                "• Montant >= 100 000 TND → +40 pts\n"
+                "• Montant >= 50 000 TND  → +30 pts\n"
+                "• Montant >= 20 000 TND  → +20 pts\n"
+                "• Montant >= 10 000 TND  → +10 pts\n"
                 "• Décès déclaré(s)       → +30 pts\n"
                 "• Blessés > 1            → +15 pts\n"
                 "• Responsabilité totale  → +15 pts\n\n"
@@ -402,7 +393,6 @@ class FraudModel:
                 f"**Résultat : {score}/100 — {niveau}**"
             )
 
-        # ── Rapport ─────────────────────────────────────────────────────────
         if any(w in ml for w in ["rapport", "audit", "report", "génère", "genere",
                                    "générer", "generer", "genera"]):
             flags = self._flags(data)
@@ -411,7 +401,7 @@ class FraudModel:
                 f"• **Nature**       : {nature}\n"
                 f"• **Usage**        : {usage if usage != '—' else 'Non renseigné'}\n"
                 f"• **Contrat**      : {contrat}\n"
-                f"• **Montant**      : {montant:,.0f} TND\n"
+                f"• **Montant**      : {montant:.0f} TND\n"
                 f"• **Blessés**      : {blesses}  |  **Décès** : {deces}\n"
                 f"• **Responsab.**   : {'Totale' if resp else 'Non totale'}\n"
                 f"• **État dossier** : {etat}\n"
@@ -420,13 +410,12 @@ class FraudModel:
                 f"**► Recommandation :** {self._recommandation(score)}"
             )
 
-        # ── Résumé ──────────────────────────────────────────────────────────
         if any(w in ml for w in ["résume", "resume", "résumé", "points clés", "points cles",
                                    "clé", "summary", "synthèse", "synthese", "résumer"]):
             return (
                 f"**Résumé — Sinistre {num}**\n\n"
                 f"Sinistre de nature **{nature}** (contrat {contrat}), "
-                f"montant évalué **{montant:,.0f} TND**. "
+                f"montant évalué **{montant:.0f} TND**. "
                 + (f"**{deces} décès** et " if deces > 0 else "")
                 + (f"**{blesses} blessé(s)**. " if blesses > 0 else "")
                 + f"Usage véhicule : **{usage if usage != '—' else 'Non renseigné'}**. "
@@ -434,12 +423,11 @@ class FraudModel:
                 f"**Action :** {self._recommandation(score)}"
             )
 
-        # ── Éléments à vérifier ─────────────────────────────────────────────
         if any(w in ml for w in ["vérifier", "verifier", "priorité", "priorite",
                                    "éléments", "elements", "contrôler", "controle",
                                    "checker", "check"]):
             items = []
-            if montant >= 20_000: items.append(f"Justificatifs du montant ({montant:,.0f} TND)")
+            if montant >= 20_000: items.append(f"Justificatifs du montant ({montant:.0f} TND)")
             if deces > 0:         items.append(f"Actes de décès ({deces} décès)")
             if blesses > 0:       items.append(f"Rapports médicaux ({blesses} blessé(s))")
             if resp:              items.append("Rapport de police (responsabilité totale)")
@@ -450,7 +438,6 @@ class FraudModel:
             ]
             return "**Éléments à vérifier en priorité :**\n" + "\n".join(f"• {i}" for i in items)
 
-        # ── Véhicule / usage / contrat ──────────────────────────────────────
         if any(w in ml for w in ["véhicule", "vehicule", "voiture", "moto", "puissance",
                                    "valeur", "age", "âge", "marque", "modèle",
                                    "contrat", "usage", "type contrat", "chneya"]):
@@ -470,7 +457,6 @@ class FraudModel:
                 f"N° Contrat : **{contrat if contrat != '—' else 'Non renseigné'}**"
             )
 
-        # ── Règlement / frais ────────────────────────────────────────────────
         if any(w in ml for w in ["remorquage", "frais", "rembours", "règlement",
                                    "reglement", "cumul", "total", "sap", "payé"]):
             parts = []
@@ -480,7 +466,6 @@ class FraudModel:
             if parts: return "**Montants réglés :**\n" + "\n".join(f"• {p}" for p in parts)
             return "Les données de règlement ne sont pas disponibles pour ce sinistre."
 
-        # ── Type ────────────────────────────────────────────────────────────
         if any(w in ml for w in ["type", "code", "catégorie", "categorie",
                                    "corporel", "matériel", "mixte"]):
             parts = []
@@ -489,7 +474,6 @@ class FraudModel:
             if code_resp != "—": parts.append(f"Code responsabilité : **{code_resp}**")
             if parts: return "\n".join(f"• {p}" for p in parts)
 
-        # ── Tout ────────────────────────────────────────────────────────────
         if any(w in ml for w in ["tout", "all", "kol", "koll", "liste", "info",
                                    "données", "donnees", "disponible", "connais", "sait"]):
             available = []
@@ -498,7 +482,7 @@ class FraudModel:
             if code_type   != "—": available.append(f"Type contrat : {code_type}")
             if nature      != "—": available.append(f"Nature : {nature}")
             if type_sin    != "—": available.append(f"Type : {type_sin}")
-            if montant     >   0 : available.append(f"Montant : {montant:,.0f} TND")
+            if montant     >   0 : available.append(f"Montant : {montant:.0f} TND")
             if date_surv   != "—": available.append(f"Date accident : {date_surv}")
             if date_decl   != "—": available.append(f"Date déclaration : {date_decl}")
             if gouvernorat != "—": available.append(f"Gouvernorat : {gouvernorat}")
@@ -515,7 +499,6 @@ class FraudModel:
                 + f"\n\n**Score risque : {score}/100 — {niveau}**"
             )
 
-        # ── Score ────────────────────────────────────────────────────────────
         if any(w in ml for w in ["score", "risque", "fraude", "suspect", "niveau",
                                    "faible", "bas", "élevé"]):
             return (
@@ -524,29 +507,24 @@ class FraudModel:
                    else "Ce profil est dans les normes habituelles.")
             )
 
-        # ── Montant ──────────────────────────────────────────────────────────
         if any(w in ml for w in ["montant", "somme", "évaluation", "argent",
                                    "prix", "coût", "cout", "tnd", "dinars"]):
             return (
-                f"Le montant évalué pour le sinistre **{num}** est de **{montant:,.0f} TND**. "
+                f"Le montant évalué pour le sinistre **{num}** est de **{montant:.0f} TND**. "
                 + ("Montant très élevé — facteur de risque majeur." if montant >= 50_000
                    else f"Montant {'modéré' if montant >= 10_000 else 'faible'}.")
             )
 
-        # ── Nature ───────────────────────────────────────────────────────────
         if any(w in ml for w in ["nature", "corporel", "assistance", "matériel", "vol"]):
             return f"La nature de ce sinistre est **{nature}** (contrat n° {contrat})."
 
-        # ── État ─────────────────────────────────────────────────────────────
         if any(w in ml for w in ["état", "etat", "statut", "situation", "clos", "ouvert"]):
             return f"L'état actuel du sinistre **{num}** est : **{etat}**."
 
-        # ── Décision ─────────────────────────────────────────────────────────
         if any(w in ml for w in ["décision", "decision", "action", "faire",
                                    "recommandation", "recommande", "procéder"]):
             return self._recommandation(score)
 
-        # ── Date ─────────────────────────────────────────────────────────────
         if any(w in ml for w in ["wa9tech", "quand", "when", "date", "survenance",
                                    "déclaration", "déclaré", "survenu", "passé", "arrivé"]):
             parts = []
@@ -564,26 +542,22 @@ class FraudModel:
             if parts: return "\n".join(parts)
             return "Les dates ne sont pas disponibles pour ce sinistre."
 
-        # ── Lieu ─────────────────────────────────────────────────────────────
         if any(w in ml for w in ["win", "où", "lieu", "location", "adresse",
                                    "gouvernorat", "ville", "région", "region"]):
             if gouvernorat != "—":
                 return f"Le sinistre **{num}** est localisé dans le gouvernorat : **{gouvernorat}**."
             return f"Le gouvernorat n'est pas disponible pour le sinistre **{num}**."
 
-        # ── Décès ────────────────────────────────────────────────────────────
         if any(w in ml for w in ["décès", "deces", "mort", "victime", "tué"]):
             return (f"**{deces} décès déclaré(s)** pour ce sinistre." if deces > 0
                     else "Aucun décès déclaré pour ce sinistre.")
 
-        # ── Blessés ──────────────────────────────────────────────────────────
         if any(w in ml for w in ["blessé", "blesse", "blessure", "blessés"]):
             return (f"**{blesses} blessé(s)** déclaré(s) pour ce sinistre." if blesses > 0
                     else "Aucun blessé déclaré pour ce sinistre.")
 
-        # ── Default ──────────────────────────────────────────────────────────
         return (
-            f"Pour le sinistre **{num}** (nature: {nature}, montant: {montant:,.0f} TND, "
+            f"Pour le sinistre **{num}** (nature: {nature}, montant: {montant:.0f} TND, "
             f"score: {score}/100), je peux :\n"
             "• Expliquer **pourquoi** ce score\n"
             "• Détailler **comment** il est calculé\n"
@@ -600,11 +574,11 @@ class FraudModel:
         blesses = _blesses(data)
         resp    = str(data.get("CODE_RESPONSABILITE") or "").strip().upper()
 
-        if   montant > 500_000: flags.append(f"Montant exceptionnel ({montant:,.0f} TND)")
-        elif montant > 200_000: flags.append(f"Montant très élevé ({montant:,.0f} TND)")
-        elif montant > 100_000: flags.append(f"Montant élevé ({montant:,.0f} TND)")
-        elif montant >  50_000: flags.append(f"Montant suspect ({montant:,.0f} TND)")
-        elif montant >  20_000: flags.append(f"Montant significatif ({montant:,.0f} TND)")
+        if   montant > 500_000: flags.append(f"Montant exceptionnel ({montant:.0f} TND)")
+        elif montant > 200_000: flags.append(f"Montant très élevé ({montant:.0f} TND)")
+        elif montant > 100_000: flags.append(f"Montant élevé ({montant:.0f} TND)")
+        elif montant >  50_000: flags.append(f"Montant suspect ({montant:.0f} TND)")
+        elif montant >  20_000: flags.append(f"Montant significatif ({montant:.0f} TND)")
 
         if   deces >= 3: flags.append(f"{int(deces)} décès déclarés")
         elif deces >= 1: flags.append(f"{int(deces)} décès déclaré(s)")
@@ -645,11 +619,11 @@ class FraudModel:
                 if cumul > 0:
                     ratio = cumul / montant
                     if   ratio > 2.0:
-                        flags.append(f"Règlement très suspect ({cumul:,.0f} TND vs {montant:,.0f} TND évalué)")
+                        flags.append(f"Règlement très suspect ({cumul:.0f} TND vs {montant:.0f} TND évalué)")
                     elif ratio > 1.5:
-                        flags.append(f"Règlement suspect ({cumul:,.0f} TND vs {montant:,.0f} TND évalué)")
+                        flags.append(f"Règlement suspect ({cumul:.0f} TND vs {montant:.0f} TND évalué)")
                     elif ratio < 0.3:
-                        flags.append(f"Sous-règlement anormal ({cumul:,.0f} TND vs {montant:,.0f} TND évalué)")
+                        flags.append(f"Sous-règlement anormal ({cumul:.0f} TND vs {montant:.0f} TND évalué)")
             except (ValueError, TypeError):
                 pass
 
@@ -661,7 +635,7 @@ class FraudModel:
         montant = _montant(data)
         return (
             f"Analyse du sinistre {num} — Score {score}/100 ({niveau}). "
-            f"Nature: {nature} | Montant: {montant:,.0f} TND. "
+            f"Nature: {nature} | Montant: {montant:.0f} TND. "
             f"Facteurs: {'; '.join(flags) if flags else 'aucun signal majeur'}. "
             f"{'Forte probabilité de fraude.' if score >= 65 else 'Profil dans les normes.'}"
         )

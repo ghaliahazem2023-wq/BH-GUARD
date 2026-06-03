@@ -139,8 +139,8 @@ public class AdminController {
             "SELECT TOP 200 NUM_SINISTRE, NUM_CONTRAT, DATE_DECLARATION, DATE_SURVENANCE, DATE_OUVERTURE, " +
             "NATURE_SINISTRE, TYPE_SINISTRE, MONTANT_EVALUATION, Total_SAP_Final, cumul_reglement, " +
             "NOMBRE_BLESSES, NOMBRE_DECES, CODE_RESPONSABILITE, LIB_ETAT_SINISTRE, " +
-            "GOUVERNORAT, LIEU_ACCIDENT, SCORE_RISQUE, CODE_TYPE_CONTRAT " +
-            "FROM sinistres ORDER BY MONTANT_EVALUATION DESC"
+            "GOUVERNORAT, LIEU_ACCIDENT, SCORE_RISQUE, SCORE_HEURISTIQUE, SCORE_GLOBAL, CODE_TYPE_CONTRAT " +
+            "FROM sinistres ORDER BY ISNULL(SCORE_GLOBAL, ISNULL(SCORE_RISQUE,0)) DESC"
         );
 
         Map<String, Map<String, Object>> decisions = new HashMap<>();
@@ -163,7 +163,10 @@ public class AdminController {
             Integer deces   = toInt(row.get("NOMBRE_DECES"));
             Integer blesses = toInt(row.get("NOMBRE_BLESSES"));
             String  resp    = toString(row.get("CODE_RESPONSABILITE"));
-            Double  scoreDb = toDouble(row.get("SCORE_RISQUE"));
+            Double  scoreDb     = toDouble(row.get("SCORE_GLOBAL")) != null && toDouble(row.get("SCORE_GLOBAL")) > 0
+                                  ? toDouble(row.get("SCORE_GLOBAL")) : toDouble(row.get("SCORE_RISQUE"));
+            Double  scoreML     = toDouble(row.get("SCORE_RISQUE"));
+            Double  scoreHeur   = toDouble(row.get("SCORE_HEURISTIQUE"));
             String  numSin  = toString(row.get("NUM_SINISTRE"));
 
             int score;
@@ -190,6 +193,9 @@ public class AdminController {
             m.put("assure",          toString(row.get("NUM_CONTRAT")));
             m.put("montant",         montant != null ? montant : 0.0);
             m.put("scoreRisque",     score);
+            m.put("scoreML",         scoreML != null ? scoreML.intValue() : 0);
+            m.put("scoreHeuristique",scoreHeur != null ? scoreHeur.intValue() : 0);
+            m.put("scoreGlobal",     score);
             m.put("statut",          score >= 80 ? "SUSPECT" : "EN_ANALYSE");
             m.put("dateSignalement", row.get("DATE_DECLARATION") != null
                     ? row.get("DATE_DECLARATION").toString()

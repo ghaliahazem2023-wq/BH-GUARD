@@ -112,72 +112,6 @@ public class SinistreController {
         return ResponseEntity.ok(info);
     }
 
-    // ── GET un sinistre par numéro ─────────────────────────────────────────────
-    @GetMapping("/{numSinistre}")
-    public ResponseEntity<?> getSinistre(@PathVariable String numSinistre) {
-        JdbcTemplate jdbc = new JdbcTemplate(sinistreDataSource);
-        List<Map<String, Object>> rows;
-        try {
-            rows = jdbc.queryForList(
-                "SELECT TOP 1 " +
-                "  LTRIM(RTRIM(NUM_SINISTRE))              AS numSinistre, " +
-                "  LTRIM(RTRIM(ISNULL(NUM_CONTRAT,'')))    AS numContrat, " +
-                "  ANNEE_EXERCICE                          AS anneeExercice, " +
-                "  CONVERT(VARCHAR(10),DATE_SURVENANCE,120)  AS dateSurvenance, " +
-                "  CONVERT(VARCHAR(10),DATE_DECLARATION,120) AS dateDeclaration, " +
-                "  CONVERT(VARCHAR(10),DATE_OUVERTURE,120)   AS dateOuverture, " +
-                "  LTRIM(RTRIM(ISNULL(NATURE_SINISTRE,''))) AS natureSinistre, " +
-                "  LTRIM(RTRIM(ISNULL(TYPE_SINISTRE,'')))   AS typeSinistre, " +
-                "  LTRIM(RTRIM(ISNULL(LIB_ETAT_SINISTRE,''))) AS libEtatSinistre, " +
-                "  LTRIM(RTRIM(ISNULL(GOUVERNORAT,'')))     AS gouvernorat, " +
-                "  LTRIM(RTRIM(ISNULL(LIEU_ACCIDENT,'')))   AS lieuAccident, " +
-                "  LTRIM(RTRIM(ISNULL(usage,'')))           AS usage, " +
-                "  ISNULL(NOMBRE_BLESSES,0)                AS nombreBlesses, " +
-                "  ISNULL(NOMBRE_DECES,0)                  AS nombreDeces, " +
-                "  ISNULL(MONTANT_EVALUATION,0)            AS montantEvaluation, " +
-                "  ISNULL(cumul_reglement,0)               AS cumulReglement, " +
-                "  ISNULL(Total_SAP_Final,0)               AS totalSapFinal, " +
-                "  LTRIM(RTRIM(ISNULL(CODE_TYPE_CONTRAT,'')))    AS codeTypeContrat, " +
-                "  LTRIM(RTRIM(ISNULL(CODE_RESPONSABILITE,'')))  AS codeResponsabilite, " +
-                "  ISNULL(SCORE_RISQUE,0)                  AS scoreRisque, " +
-                "  ISNULL(SCORE_GLOBAL, ISNULL(SCORE_RISQUE,0)) AS scoreGlobal " +
-                "FROM sinistres WHERE LTRIM(RTRIM(NUM_SINISTRE)) = ?",
-                numSinistre.trim());
-        } catch (Exception e) {
-            System.err.println("[BHGuard] GET /{num} erreur JDBC: " + e.getMessage());
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
-        }
-        if (rows.isEmpty()) return ResponseEntity.notFound().build();
-
-        Map<String, Object> row = new LinkedHashMap<>(rows.get(0));
-        double dbScore = row.get("scoreRisque") instanceof Number
-                         ? ((Number) row.get("scoreRisque")).doubleValue() : 0;
-        System.out.println("[BHGuard] GET /" + numSinistre.trim() + " → scoreRisque=" + dbScore);
-        row.put("scoreEstime",  dbScore <= 0);
-        row.put("niveauRisque", sinistreService.calculerNiveau((int) dbScore));
-        row.put("estSuspect",   dbScore >= 65);
-        row.put("scoreGlobal",  row.get("scoreGlobal"));
-        return ResponseEntity.ok(row);
-    }
-
-    // ── GET recherche ──────────────────────────────────────────────────────────
-    @GetMapping("/search")
-    public ResponseEntity<?> search(@RequestParam String q) {
-        List<Sinistre> results = sinistreRepository.search(q);
-        return ResponseEntity.ok(results);
-    }
-
-    // ── GET stats dashboard ────────────────────────────────────────────────────
-    @GetMapping("/stats")
-    public ResponseEntity<?> getStats() {
-        long total = sinistreRepository.count();
-        long elevés = sinistreRepository.findSinistresElevés(10000.0).size();
-        return ResponseEntity.ok(Map.of(
-                "total_sinistres", total,
-                "sinistres_montant_eleve", elevés
-        ));
-    }
-
     // ── GET config_scoring ─────────────────────────────────────────────────────
     @GetMapping("/config-scoring")
     public ResponseEntity<?> getConfigScoring() {
@@ -207,7 +141,73 @@ public class SinistreController {
         }
     }
 
-    // ── POST recalculer tous les SCORE_GLOBAL selon config_scoring ─────────────
+    // ── GET un sinistre par numéro ─────────────────────────────────────────────
+    @GetMapping("/{numSinistre}")
+    public ResponseEntity<?> getSinistre(@PathVariable String numSinistre) {
+        JdbcTemplate jdbc = new JdbcTemplate(sinistreDataSource);
+        List<Map<String, Object>> rows;
+        try {
+            rows = jdbc.queryForList(
+                "SELECT TOP 1 " +
+                "  LTRIM(RTRIM(NUM_SINISTRE))              AS numSinistre, " +
+                "  LTRIM(RTRIM(ISNULL(NUM_CONTRAT,'')))    AS numContrat, " +
+                "  ANNEE_EXERCICE                          AS anneeExercice, " +
+                "  CONVERT(VARCHAR(10),DATE_SURVENANCE,120)  AS dateSurvenance, " +
+                "  CONVERT(VARCHAR(10),DATE_DECLARATION,120) AS dateDeclaration, " +
+                "  CONVERT(VARCHAR(10),DATE_OUVERTURE,120)   AS dateOuverture, " +
+                "  LTRIM(RTRIM(ISNULL(NATURE_SINISTRE,''))) AS natureSinistre, " +
+                "  LTRIM(RTRIM(ISNULL(TYPE_SINISTRE,'')))   AS typeSinistre, " +
+                "  LTRIM(RTRIM(ISNULL(LIB_ETAT_SINISTRE,''))) AS libEtatSinistre, " +
+                "  LTRIM(RTRIM(ISNULL(GOUVERNORAT,'')))     AS gouvernorat, " +
+                "  LTRIM(RTRIM(ISNULL(LIEU_ACCIDENT,'')))   AS lieuAccident, " +
+                "  LTRIM(RTRIM(ISNULL(usage,'')))           AS usage, " +
+                "  ISNULL(NOMBRE_BLESSES,0)                AS nombreBlesses, " +
+                "  ISNULL(NOMBRE_DECES,0)                  AS nombreDeces, " +
+                "  ISNULL(MONTANT_EVALUATION,0)            AS montantEvaluation, " +
+                "  ISNULL(cumul_reglement,0)               AS cumulReglement, " +
+                "  ISNULL(Total_SAP_Final,0)               AS totalSapFinal, " +
+                "  LTRIM(RTRIM(ISNULL(CODE_TYPE_CONTRAT,'')))    AS codeTypeContrat, " +
+                "  LTRIM(RTRIM(ISNULL(CODE_RESPONSABILITE,'')))  AS codeResponsabilite, " +
+                "  ISNULL(SCORE_RISQUE,0)                       AS scoreRisque, " +
+                "  ISNULL(SCORE_HEURISTIQUE,0)                  AS scoreHeuristique, " +
+                "  ISNULL(SCORE_GLOBAL, ISNULL(SCORE_RISQUE,0)) AS scoreGlobal " +
+                "FROM sinistres WHERE LTRIM(RTRIM(NUM_SINISTRE)) = ?",
+                numSinistre.trim());
+        } catch (Exception e) {
+            System.err.println("[BHGuard] GET /{num} erreur JDBC: " + e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        }
+        if (rows.isEmpty()) return ResponseEntity.notFound().build();
+
+        Map<String, Object> row = new LinkedHashMap<>(rows.get(0));
+        double dbScore = row.get("scoreRisque") instanceof Number
+                         ? ((Number) row.get("scoreRisque")).doubleValue() : 0;
+        System.out.println("[BHGuard] GET /" + numSinistre.trim() + " → scoreRisque=" + dbScore);
+        row.put("scoreEstime",  dbScore <= 0);
+        row.put("niveauRisque", sinistreService.calculerNiveau((int) dbScore));
+        row.put("estSuspect",   dbScore >= 65);
+        return ResponseEntity.ok(row);
+    }
+
+    // ── GET recherche ──────────────────────────────────────────────────────────
+    @GetMapping("/search")
+    public ResponseEntity<?> search(@RequestParam String q) {
+        List<Sinistre> results = sinistreRepository.search(q);
+        return ResponseEntity.ok(results);
+    }
+
+    // ── GET stats dashboard ────────────────────────────────────────────────────
+    @GetMapping("/stats")
+    public ResponseEntity<?> getStats() {
+        long total = sinistreRepository.count();
+        long elevés = sinistreRepository.findSinistresElevés(10000.0).size();
+        return ResponseEntity.ok(Map.of(
+                "total_sinistres", total,
+                "sinistres_montant_eleve", elevés
+        ));
+    }
+
+    // ── POST recalculer SCORE_HEURISTIQUE + SCORE_GLOBAL pour tous ─────────────
     @PostMapping("/recalculer-scores-global")
     public ResponseEntity<?> recalculerScoresGlobal() {
         JdbcTemplate jdbcPrimary  = new JdbcTemplate(primaryDataSource);
@@ -224,19 +224,16 @@ public class SinistreController {
 
             double m500k = cfg.getOrDefault("montant_500k_pts", 35.0);
             double m200k = cfg.getOrDefault("montant_200k_pts", 25.0);
-            double m100k = cfg.getOrDefault("montant_100k_pts", 20.0);
-            double m50k  = cfg.getOrDefault("montant_50k_pts",  15.0);
-            double m20k  = cfg.getOrDefault("montant_20k_pts",  8.0);
-            double m10k  = cfg.getOrDefault("montant_10k_pts",  3.0);
-            double dPts  = cfg.getOrDefault("deces_pts",        25.0);
-            double b3Pts = cfg.getOrDefault("blesses_3_pts",    15.0);
-            double b1Pts = cfg.getOrDefault("blesses_1_pts",    8.0);
-            double rPts  = cfg.getOrDefault("responsabilite_pts", 20.0);
-            double rsPts = cfg.getOrDefault("reglement_suspect_pts", 15.0);
-            double ncPts = cfg.getOrDefault("nature_corporel_pts", 10.0);
+            double m100k = cfg.getOrDefault("montant_100k_pts", 40.0);
+            double m50k  = cfg.getOrDefault("montant_50k_pts",  30.0);
+            double m20k  = cfg.getOrDefault("montant_20k_pts",  20.0);
+            double m10k  = cfg.getOrDefault("montant_10k_pts",  10.0);
+            double dPts  = cfg.getOrDefault("deces_pts",        30.0);
+            double bPts  = cfg.getOrDefault("blesses_pts",      15.0);
+            double rPts  = cfg.getOrDefault("responsabilite_pts", 15.0);
 
-            // 2. SQL batch UPDATE SCORE_GLOBAL avec les points de config
-            String sql =
+            // 2. Calculer SCORE_HEURISTIQUE pour tous les sinistres
+            String sqlHeuristique =
                 "WITH scored AS ( " +
                 "  SELECT NUM_SINISTRE, " +
                 "    CASE WHEN raw_sc > 100 THEN 100 ELSE raw_sc END AS sc " +
@@ -250,28 +247,31 @@ public class SinistreController {
                 "                  WHEN ISNULL(MONTANT_EVALUATION,0) >= 10000  THEN " + (int)m10k +
                 "                  ELSE 0 END, 0) " +
                 "    + ISNULL(CASE WHEN ISNULL(NOMBRE_DECES,0) > 0 THEN " + (int)dPts + " ELSE 0 END, 0) " +
-                "    + ISNULL(CASE WHEN ISNULL(NOMBRE_BLESSES,0) > 3 THEN " + (int)b3Pts +
-                "                  WHEN ISNULL(NOMBRE_BLESSES,0) > 0 THEN " + (int)b1Pts +
-                "                  ELSE 0 END, 0) " +
+                "    + ISNULL(CASE WHEN ISNULL(NOMBRE_BLESSES,0) > 1 THEN " + (int)bPts + " ELSE 0 END, 0) " +
                 "    + CASE WHEN UPPER(LTRIM(RTRIM(ISNULL(CODE_RESPONSABILITE,'')))) IN ('T','TOTALE','100') THEN " + (int)rPts + " ELSE 0 END " +
-                "    + CASE WHEN ISNULL(cumul_reglement,0) > ISNULL(MONTANT_EVALUATION,0) * 1.3 " +
-                "           AND ISNULL(MONTANT_EVALUATION,0) > 0 THEN " + (int)rsPts + " ELSE 0 END " +
-                "    + CASE WHEN UPPER(LTRIM(RTRIM(ISNULL(NATURE_SINISTRE,'')))) = 'CORPOREL' THEN " + (int)ncPts + " ELSE 0 END " +
                 "    AS raw_sc " +
                 "    FROM sinistres " +
                 "  ) t " +
                 ") " +
-                "UPDATE s SET s.SCORE_GLOBAL = scored.sc " +
+                "UPDATE s SET s.SCORE_HEURISTIQUE = scored.sc " +
                 "FROM sinistres s " +
                 "JOIN scored ON s.NUM_SINISTRE = scored.NUM_SINISTRE";
 
             long t0      = System.currentTimeMillis();
-            int  traites = jdbcSinistre.update(sql);
-            long duree   = System.currentTimeMillis() - t0;
+            int  traites = jdbcSinistre.update(sqlHeuristique);
+
+            // 3. Calculer SCORE_GLOBAL = (2×SCORE_HEURISTIQUE + 1×SCORE_RISQUE) / 3
+            String sqlGlobal =
+                "UPDATE sinistres " +
+                "SET SCORE_GLOBAL = ROUND((2.0 * SCORE_HEURISTIQUE + 1.0 * ISNULL(SCORE_RISQUE,SCORE_HEURISTIQUE)) / 3.0, 0) " +
+                "WHERE SCORE_HEURISTIQUE IS NOT NULL";
+
+            jdbcSinistre.update(sqlGlobal);
+            long duree = System.currentTimeMillis() - t0;
 
             System.out.println("[BHGuard] recalculerScoresGlobal: " + traites + " sinistres traités en " + duree + "ms");
 
-            // 3. Stats
+            // 4. Stats
             Map<String, Object> recap = jdbcSinistre.queryForMap(
                 "SELECT " +
                 "  COUNT(*) AS total, " +
@@ -293,6 +293,109 @@ public class SinistreController {
         } catch (Exception e) {
             System.err.println("[BHGuard] recalculerScoresGlobal ERREUR: " + e.getMessage());
             e.printStackTrace();
+            return ResponseEntity.status(500).body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    // ── POST batch score global (SCORE_HEURISTIQUE + SCORE_GLOBAL) ────────────
+    @PostMapping("/batch-score-global")
+    public ResponseEntity<?> batchScoreGlobal() {
+        JdbcTemplate jdbcSinistre = new JdbcTemplate(sinistreDataSource);
+        try {
+            System.out.println("[BHGuard] Démarrage batch score global...");
+            long t0 = System.currentTimeMillis();
+            List<Map<String, Object>> rows = jdbcSinistre.queryForList(
+                "SELECT LTRIM(RTRIM(NUM_SINISTRE)) AS num, " +
+                "ISNULL(MONTANT_EVALUATION,0) AS montant, ISNULL(NOMBRE_DECES,0) AS deces, " +
+                "ISNULL(NOMBRE_BLESSES,0) AS blesses, ISNULL(SCORE_RISQUE,0) AS scoreML, " +
+                "LTRIM(RTRIM(ISNULL(CODE_RESPONSABILITE,''))) AS resp, " +
+                "LTRIM(RTRIM(ISNULL(NATURE_SINISTRE,''))) AS nature, " +
+                "ISNULL(cumul_reglement,0) AS cumul, " +
+                "CONVERT(VARCHAR(10),DATE_SURVENANCE,120) AS dateSurv, " +
+                "CONVERT(VARCHAR(10),DATE_DECLARATION,120) AS dateDecl FROM sinistres");
+            int traites=0, critiques=0, moderes=0, conformes=0;
+            for (Map<String, Object> row : rows) {
+                String num     = row.get("num").toString();
+                double montant = ((Number) row.get("montant")).doubleValue();
+                int deces      = ((Number) row.get("deces")).intValue();
+                int blesses    = ((Number) row.get("blesses")).intValue();
+                double scoreML = ((Number) row.get("scoreML")).doubleValue();
+                String resp    = row.get("resp").toString().toUpperCase();
+                String nature  = row.get("nature").toString().toUpperCase();
+                double cumul   = ((Number) row.get("cumul")).doubleValue();
+                String dateSurv = row.get("dateSurv") != null ? row.get("dateSurv").toString() : "";
+                String dateDecl = row.get("dateDecl") != null ? row.get("dateDecl").toString() : "";
+                int scoreH = 0;
+                switch (nature) {
+                    case "CORPOREL":
+                        if      (montant >= 500_000) scoreH += 40;
+                        else if (montant >= 200_000) scoreH += 30;
+                        else if (montant >= 100_000) scoreH += 20;
+                        else if (montant >=  50_000) scoreH += 10;
+                        break;
+                    case "MATERIEL":
+                        if      (montant >= 100_000) scoreH += 30;
+                        else if (montant >=  50_000) scoreH += 20;
+                        else if (montant >=  20_000) scoreH += 10;
+                        break;
+                    default:
+                        if      (montant >= 10_000) scoreH += 15;
+                        else if (montant >=  5_000) scoreH += 8;
+                        else if (montant >=  1_000) scoreH += 3;
+                }
+                if      (deces >= 3) scoreH += 35;
+                else if (deces >= 1) scoreH += 25;
+                if      (blesses >= 5) scoreH += 20;
+                else if (blesses >= 3) scoreH += 12;
+                else if (blesses >= 1) scoreH +=  5;
+                if (resp.equals("TOTALE") || resp.equals("100") || resp.equals("T")) scoreH += 15;
+                else if (resp.equals("PARTIELLE") || resp.equals("50") || resp.equals("P")) scoreH += 5;
+                if (montant > 0 && cumul > 0) {
+                    double ratio = cumul / montant;
+                    if      (ratio > 2.0) scoreH += 20;
+                    else if (ratio > 1.5) scoreH += 10;
+                }
+                if (!dateSurv.isEmpty() && !dateDecl.isEmpty()) {
+                    try {
+                        LocalDate d1 = LocalDate.parse(dateSurv.split("[T ]")[0]);
+                        LocalDate d2 = LocalDate.parse(dateDecl.split("[T ]")[0]);
+                        long days = ChronoUnit.DAYS.between(d1, d2);
+                        if      (days > 90) scoreH += 15;
+                        else if (days > 30) scoreH += 10;
+                        else if (days > 15) scoreH +=  5;
+                    } catch (Exception ignored) {}
+                }
+                scoreH = (int) Math.round(scoreH * 0.85);
+                scoreH = Math.min(scoreH, 100);
+                int scoreGlobal;
+                if (scoreML > 0) {
+                    scoreGlobal = (int) Math.round((2.0 * scoreH + 1.0 * scoreML) / 3.0);
+                } else {
+                    scoreGlobal = scoreH;
+                }
+                scoreGlobal = Math.min(100, Math.max(0, scoreGlobal));
+                jdbcSinistre.update(
+                    "UPDATE sinistres SET SCORE_HEURISTIQUE = ?, SCORE_GLOBAL = ? " +
+                    "WHERE LTRIM(RTRIM(NUM_SINISTRE)) = ?",
+                    (double) scoreH, (double) scoreGlobal, num);
+                traites++;
+                if      (scoreGlobal >= 75) critiques++;
+                else if (scoreGlobal >= 40) moderes++;
+                else                        conformes++;
+                if (traites % 1000 == 0)
+                    System.out.println("[BHGuard] batch: " + traites + "/" + rows.size());
+            }
+            long duree = System.currentTimeMillis() - t0;
+            System.out.println("[BHGuard] batch terminé: " + traites + " en " + duree + "ms");
+            Map<String, Object> response = new LinkedHashMap<>();
+            response.put("traites",   traites);
+            response.put("critiques", critiques);
+            response.put("moderes",   moderes);
+            response.put("conformes", conformes);
+            response.put("dureeMs",   duree);
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            System.err.println("[BHGuard] batch ERREUR: " + e.getMessage());
             return ResponseEntity.status(500).body(Map.of("error", e.getMessage()));
         }
     }
@@ -406,11 +509,14 @@ public class SinistreController {
             if (rawBody != null && rawBody.get("score_risque") instanceof Number)
                 scoreFastApi = ((Number) rawBody.get("score_risque")).intValue();
 
+            // Score heuristique Java
             int scoreFormule = sinistre != null ? scoreHeuristique(sinistre) : scoreBase;
             if (scoreFormule <= 0) scoreFormule = scoreBase;
 
+            // Score ML FastAPI
             int scoreML = scoreFastApi > 0 ? scoreFastApi : 0;
 
+            // Score global composite (2×Formule + 1×ML) / 3
             int scoreGlobal;
             if (scoreML > 0) {
                 scoreGlobal = (int) Math.round((2.0 * scoreFormule + 1.0 * scoreML) / 3.0);
@@ -442,7 +548,8 @@ public class SinistreController {
             body.put("est_suspect",   scoreGlobal >= 65);
             body.put("num_sinistre",  numSinistre);
 
-            sauvegarderScore(numSinistre, scoreGlobal, true);
+            // Sauvegarder SCORE_HEURISTIQUE + SCORE_GLOBAL en base
+            sauvegarderScores(numSinistre, scoreFormule, scoreML, scoreGlobal);
 
             return ResponseEntity.ok(body);
 
@@ -462,30 +569,36 @@ public class SinistreController {
         }
     }
 
-    private void sauvegarderScore(String numSinistre, int score, boolean mlScore) {
+    private void sauvegarderScores(String numSinistre, int scoreHeuristique, int scoreML, int scoreGlobal) {
+        JdbcTemplate jdbc = new JdbcTemplate(sinistreDataSource);
         try {
-            JdbcTemplate jdbc = new JdbcTemplate(sinistreDataSource);
-            List<Map<String, Object>> check = jdbc.queryForList(
-                "SELECT LTRIM(RTRIM(NUM_SINISTRE)) AS num, SCORE_GLOBAL FROM sinistres " +
-                "WHERE LTRIM(RTRIM(NUM_SINISTRE)) = ?",
-                numSinistre.trim());
-            System.out.println("[BHGuard] Sinistre trouvé: " + check.size() + " → " + check);
-
+            // Tentative complète : SCORE_HEURISTIQUE + SCORE_GLOBAL
             int updated = jdbc.update(
-                "UPDATE sinistres SET SCORE_GLOBAL = ? WHERE LTRIM(RTRIM(NUM_SINISTRE)) = ?",
-                (double) score, numSinistre.trim());
-            System.out.println("[BHGuard] sauvegarderScore: " + numSinistre +
-                " score=" + score + " → " + updated + " ligne(s) mise(s) à jour");
-
-            if (updated == 0) {
-                updated = jdbc.update(
-                    "UPDATE sinistres SET SCORE_GLOBAL = ? WHERE NUM_SINISTRE = ?",
-                    (double) score, numSinistre);
-                System.out.println("[BHGuard] 2ème tentative (exact match): " + updated + " ligne(s)");
+                "UPDATE sinistres SET SCORE_HEURISTIQUE = ?, SCORE_GLOBAL = ? " +
+                "WHERE LTRIM(RTRIM(NUM_SINISTRE)) = ?",
+                (double) scoreHeuristique, (double) scoreGlobal, numSinistre.trim());
+            if (updated == 0)
+                jdbc.update(
+                    "UPDATE sinistres SET SCORE_HEURISTIQUE = ?, SCORE_GLOBAL = ? WHERE NUM_SINISTRE = ?",
+                    (double) scoreHeuristique, (double) scoreGlobal, numSinistre);
+            System.out.println("[BHGuard] sauvegarderScores: " + numSinistre
+                + " heuristique=" + scoreHeuristique + " global=" + scoreGlobal);
+        } catch (Exception ex1) {
+            // SCORE_HEURISTIQUE absent → fallback : SCORE_GLOBAL seulement
+            System.err.println("[BHGuard] sauvegarderScores fallback (SCORE_GLOBAL only): " + ex1.getMessage());
+            try {
+                int updated = jdbc.update(
+                    "UPDATE sinistres SET SCORE_GLOBAL = ? " +
+                    "WHERE LTRIM(RTRIM(NUM_SINISTRE)) = ?",
+                    (double) scoreGlobal, numSinistre.trim());
+                if (updated == 0)
+                    jdbc.update(
+                        "UPDATE sinistres SET SCORE_GLOBAL = ? WHERE NUM_SINISTRE = ?",
+                        (double) scoreGlobal, numSinistre);
+                System.out.println("[BHGuard] sauvegarderScores fallback OK: " + numSinistre + " global=" + scoreGlobal);
+            } catch (Exception ex2) {
+                System.err.println("[BHGuard] sauvegarderScores ERREUR totale: " + ex2.getMessage());
             }
-        } catch (Exception ex) {
-            System.err.println("[BHGuard] sauvegarderScore ERREUR: " + ex.getMessage());
-            ex.printStackTrace();
         }
     }
 
@@ -505,15 +618,12 @@ public class SinistreController {
         }
     }
 
-    // ── Helpers ────────────────────────────────────────────────────────────────
-
     private int scoreHeuristique(Sinistre s) {
         return sinistreService.calculerScoreHeuristique(s);
     }
 
     private List<String> buildFlags(Sinistre s) {
         List<String> flags = new ArrayList<>();
-
         if (s.getMontantEvaluation() != null) {
             double m = s.getMontantEvaluation();
             if      (m > 500_000) flags.add(String.format("Montant exceptionnel (%.0f TND)", m));
@@ -522,27 +632,22 @@ public class SinistreController {
             else if (m >  50_000) flags.add(String.format("Montant suspect (%.0f TND)", m));
             else if (m >  20_000) flags.add(String.format("Montant significatif (%.0f TND)", m));
         }
-
         if (s.getNombreDeces() != null) {
             int d = s.getNombreDeces();
             if      (d >= 3) flags.add(String.format("%d décès déclarés", d));
             else if (d >= 1) flags.add(String.format("%d décès déclaré(s)", d));
         }
-
         if (s.getNombreBlesses() != null) {
             int b = s.getNombreBlesses();
             if      (b >= 5) flags.add(String.format("%d blessés déclarés (nombre élevé)", b));
             else if (b >= 3) flags.add(String.format("%d blessés déclarés", b));
             else if (b >= 1) flags.add(String.format("%d blessé(s) déclaré(s)", b));
         }
-
-        String resp = s.getCodeResponsabilite() != null
-                      ? s.getCodeResponsabilite().trim().toUpperCase() : "";
+        String resp = s.getCodeResponsabilite() != null ? s.getCodeResponsabilite().trim().toUpperCase() : "";
         if (resp.equals("T") || resp.equals("TOTALE") || resp.equals("100"))
             flags.add("Responsabilité totale déclarée (100%)");
         else if (resp.equals("P") || resp.equals("PARTIELLE") || resp.equals("50"))
             flags.add("Responsabilité partielle déclarée");
-
         if (s.getDateSurvenance() != null && s.getDateDeclaration() != null) {
             try {
                 String s1 = s.getDateSurvenance().split("[T ]")[0];
@@ -553,12 +658,10 @@ public class SinistreController {
                 else if (days > 15) flags.add("Déclaration différée ("     + days + " jours après survenance)");
             } catch (Exception ignored) {}
         }
-
         if (s.getCumulReglement() != null && s.getMontantEvaluation() != null
                 && s.getMontantEvaluation() > 0 && s.getCumulReglement() > 0) {
-            double cumul   = s.getCumulReglement();
-            double montant = s.getMontantEvaluation();
-            double ratio   = cumul / montant;
+            double cumul = s.getCumulReglement(), montant = s.getMontantEvaluation();
+            double ratio = cumul / montant;
             if (ratio > 2.0)
                 flags.add(String.format("Règlement très suspect (%.0f TND réglé vs %.0f TND évalué)", cumul, montant));
             else if (ratio > 1.5)
@@ -566,40 +669,30 @@ public class SinistreController {
             else if (ratio < 0.3)
                 flags.add(String.format("Sous-règlement anormal (%.0f TND réglé vs %.0f TND évalué)", cumul, montant));
         }
-
         return flags;
     }
 
     private Map<String, Object> buildFallback(String numSinistre, Sinistre s) {
-        int score        = scoreHeuristique(s);
-        int scoreFormule = score;
-        int scoreGlobal  = scoreFormule;
+        int score = scoreHeuristique(s);
         boolean susp = score >= 75;
         String niveau = score >= 75 ? "CRITIQUE" : score >= 40 ? "RISQUE_MODÉRÉ" : "CONFORME";
-
         List<String> flags = buildFlags(s);
-
         String explication = String.format(
-                "### Analyse Heuristique — Sinistre %s\n\n" +
-                "**Score : %d/100 (%s)**\n\n" +
+                "### Analyse Heuristique — Sinistre %s\n\n**Score : %d/100 (%s)**\n\n" +
                 "Nature : **%s** | Montant : **%.0f TND** | Blessés : **%d** | Décès : **%d**\n\n%s",
                 numSinistre, score, niveau,
                 s.getNatureSinistre()    != null ? s.getNatureSinistre()    : "Non précisé",
                 s.getMontantEvaluation() != null ? s.getMontantEvaluation() : 0.0,
                 s.getNombreBlesses()     != null ? s.getNombreBlesses()     : 0,
                 s.getNombreDeces()       != null ? s.getNombreDeces()       : 0,
-                susp ? "**Profil suspect — investigation recommandée.**"
-                      : "Profil dans les normes. Traitement habituel."
-        );
-
+                susp ? "**Profil suspect — investigation recommandée.**" : "Profil dans les normes.");
         String reco = score >= 75 ? "INVESTIGATION REQUISE — Dossier suspect, demander pièces justificatives." :
                       score >= 40 ? "SURVEILLANCE — Vérification rigoureuse des documents." :
                                     "TRAITEMENT NORMAL — Aucune anomalie majeure.";
-
         Map<String, Object> result = new LinkedHashMap<>();
         result.put("num_sinistre",   numSinistre);
-        result.put("score_risque",   scoreGlobal);
-        result.put("score_formule",  scoreFormule);
+        result.put("score_risque",   score);
+        result.put("score_formule",  score);
         result.put("score_ml",       0);
         result.put("est_suspect",    susp);
         result.put("niveau_risque",  niveau);
