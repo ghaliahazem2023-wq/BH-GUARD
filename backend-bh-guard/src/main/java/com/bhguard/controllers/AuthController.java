@@ -2,6 +2,7 @@ package com.bhguard.controllers;
 
 import com.bhguard.models.User;
 import com.bhguard.services.LoginHistoryService;
+import com.bhguard.services.MailService;
 import com.bhguard.services.UserService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
@@ -18,6 +19,7 @@ public class AuthController {
 
     @Autowired private UserService userService;
     @Autowired private LoginHistoryService loginHistoryService;
+    @Autowired private MailService mailService;
 
     @PostMapping("/login")
     public ResponseEntity<Map<String, Object>> login(
@@ -69,5 +71,44 @@ public class AuthController {
         success.put("nom",      user.getNom());
         success.put("prenom",   user.getPrenom());
         return ResponseEntity.ok(success);
+    }
+
+    @PostMapping("/reset-password")
+    public ResponseEntity<Map<String, Object>> resetPassword(
+            @RequestBody Map<String, String> body) {
+        String username    = body.get("username");
+        String fonction    = body.get("fonction");
+        String newPassword = body.get("newPassword");
+
+        Map<String, Object> response = new HashMap<>();
+
+        Optional<User> userOpt = userService.findByUsername(username);
+        if (userOpt.isPresent()) {
+            User user = userOpt.get();
+            if (user.getRole().trim().equalsIgnoreCase(fonction)) {
+                user.setPassword(newPassword);
+                userService.save(user);
+                response.put("message", "Mot de passe mis à jour !");
+                return ResponseEntity.ok(response);
+            }
+        }
+        response.put("message", "Username ou Fonction incorrecte.");
+        return ResponseEntity.status(401).body(response);
+    }
+
+    @PostMapping("/forgot-password")
+    public ResponseEntity<Map<String, Object>> forgotPassword(
+            @RequestBody Map<String, String> body) {
+        String email = body.get("email");
+        Map<String, Object> response = new HashMap<>();
+        try {
+            mailService.sendResetEmail(email, "http://localhost:4200/reset-password");
+            response.put("message", "Un lien de réinitialisation a été envoyé à " + email);
+            response.put("success", true);
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            response.put("message", "Erreur envoi email : " + e.getMessage());
+            return ResponseEntity.status(500).body(response);
+        }
     }
 }

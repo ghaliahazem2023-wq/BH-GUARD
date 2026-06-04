@@ -22,6 +22,10 @@ public class SinistreService {
     private DataSource sinistreDataSource;
 
     @Autowired
+    @Qualifier("primaryDataSource")
+    private DataSource primaryDataSource;
+
+    @Autowired
     private SinistreRepository sinistreRepository;
 
     // ── Score canonique (liste + détail + fallback) ──────────────────────────
@@ -39,42 +43,27 @@ public class SinistreService {
 
     private int calculerScore(double montant, int deces, int blesses,
                               String nature, String resp, double cumul) {
+        JdbcTemplate jdbc = new JdbcTemplate(primaryDataSource);
+        Map<String, Double> cfg = new HashMap<>();
+        try {
+            jdbc.queryForList("SELECT cle, valeur FROM config_scoring")
+                .forEach(c -> cfg.put(c.get("cle").toString(),
+                                      ((Number) c.get("valeur")).doubleValue()));
+        } catch (Exception e) {}
+
         int score = 0;
+        if      (montant >= 500_000) score += cfg.getOrDefault("montant_500k_pts", 35.0).intValue();
+        else if (montant >= 200_000) score += cfg.getOrDefault("montant_200k_pts", 25.0).intValue();
+        else if (montant >= 100_000) score += cfg.getOrDefault("montant_100k_pts", 40.0).intValue();
+        else if (montant >=  50_000) score += cfg.getOrDefault("montant_50k_pts",  30.0).intValue();
+        else if (montant >=  20_000) score += cfg.getOrDefault("montant_20k_pts",  20.0).intValue();
+        else if (montant >=  10_000) score += cfg.getOrDefault("montant_10k_pts",  10.0).intValue();
 
-        switch (nature) {
-            case "CORPOREL":
-                if      (montant >= 500_000) score += 40;
-                else if (montant >= 200_000) score += 30;
-                else if (montant >= 100_000) score += 20;
-                else if (montant >=  50_000) score += 10;
-                break;
-            case "MATERIEL":
-                if      (montant >= 100_000) score += 30;
-                else if (montant >=  50_000) score += 20;
-                else if (montant >=  20_000) score += 10;
-                break;
-            default: // ASSISTANCE + autres
-                if      (montant >= 10_000) score += 15;
-                else if (montant >=  5_000) score += 8;
-                else if (montant >=  1_000) score += 3;
-        }
+        if (deces  >= 1) score += cfg.getOrDefault("deces_pts",          30.0).intValue();
+        if (blesses > 1) score += cfg.getOrDefault("blesses_pts",        15.0).intValue();
+        if (resp.equals("TOTALE") || resp.equals("100") || resp.equals("T"))
+                         score += cfg.getOrDefault("responsabilite_pts", 15.0).intValue();
 
-        if      (deces  >= 3) score += 35;
-        else if (deces  >= 1) score += 25;
-        if      (blesses >= 5) score += 20;
-        else if (blesses >= 3) score += 12;
-        else if (blesses >= 1) score +=  5;
-
-        if (resp.equals("TOTALE") || resp.equals("100") || resp.equals("T")) score += 15;
-        else if (resp.equals("PARTIELLE") || resp.equals("50") || resp.equals("P")) score += 5;
-
-        if (montant > 0 && cumul > 0) {
-            double ratio = cumul / montant;
-            if      (ratio > 2.0) score += 20;
-            else if (ratio > 1.5) score += 10;
-        }
-
-        score = (int) Math.round(score * 0.85);
         return Math.min(score, 100);
     }
 
