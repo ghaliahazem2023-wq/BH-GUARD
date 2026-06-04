@@ -22,7 +22,7 @@ export interface User {
   providedIn: 'root'
 })
 export class AuthService {
-  private authUrl = 'http://localhost:8081/api/auth';
+  private authUrl = 'http://localhost:8082/api/auth';
   private loginUrl = `${this.authUrl}/login`;
 
   constructor(private http: HttpClient) {}

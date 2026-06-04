@@ -6,12 +6,14 @@
       <form [formGroup]="loginForm" (ngSubmit)="onSubmit()">
         <div class="input-group">
           <i class="fas fa-user"></i>
-          <input type="text" formControlName="username" placeholder="Username">
+          <input type="text" formControlName="username" placeholder="Username" autocomplete="off">
+
         </div>
 
         <div class="input-group">
           <i class="fas fa-lock"></i>
-          <input type="password" formControlName="password" placeholder="Mot de passe">
+          <input type="password" formControlName="password" placeholder="password" autocomplete="password">
+
         </div>
 
         <div class="input-group">

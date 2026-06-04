@@ -1,1 +1,236 @@
-<p>gestion-sinistres works!</p>
+<!-- ══════════════════════════════════════════════════════════════════════════
+     Gestion des Sinistres — Registre complet avec filtres et score ML
+     ══════════════════════════════════════════════════════════════════════════ -->
+<div class="gs-page">
+
+  <!-- ── En-tête ──────────────────────────────────────────────────────────── -->
+  <div class="gs-header">
+    <div class="gs-header-l">
+      <h1 class="gs-title">Registre des Sinistres</h1>
+      <p class="gs-sub">{{ totalElements | number }} sinistres — BH Assurance Tunisie</p>
+    </div>
+    <div class="gs-header-r">
+      <button class="btn-reset" (click)="resetFiltres()">↺ Réinitialiser</button>
+    </div>
+  </div>
+
+  <!-- ── KPI rapides ───────────────────────────────────────────────────────── -->
+  <div class="kpi-row">
+    <div class="kpi kpi-red">
+      <span class="kpi-dot" style="background:#dc2626"></span>
+      <div>
+        <div class="kpi-val">{{ nbCritique }}</div>
+        <div class="kpi-lbl">Critiques sur cette page</div>
+      </div>
+    </div>
+    <div class="kpi kpi-yel">
+      <span class="kpi-dot" style="background:#d97706"></span>
+      <div>
+        <div class="kpi-val">{{ nbInvestigation }}</div>
+        <div class="kpi-lbl">Investigation</div>
+      </div>
+    </div>
+    <div class="kpi kpi-grn">
+      <span class="kpi-dot" style="background:#16a34a"></span>
+      <div>
+        <div class="kpi-val">{{ nbConforme }}</div>
+        <div class="kpi-lbl">Conformes</div>
+      </div>
+    </div>
+    <div class="kpi kpi-blue">
+      <span class="kpi-dot" style="background:#1a56db"></span>
+      <div>
+        <div class="kpi-val">{{ totalElements | number }}</div>
+        <div class="kpi-lbl">Total sinistres</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Barre de filtres ──────────────────────────────────────────────────── -->
+  <div class="filter-bar">
+
+    <!-- Recherche texte -->
+    <div class="fi-search">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+        <circle cx="11" cy="11" r="8" stroke="#94a3b8" stroke-width="2"/>
+        <path d="M21 21l-4.35-4.35" stroke="#94a3b8" stroke-width="2" stroke-linecap="round"/>
+      </svg>
+      <input type="text"
+             [(ngModel)]="searchText"
+             (ngModelChange)="onFilterChange()"
+             placeholder="N° sinistre, gouvernorat, nature..."/>
+    </div>
+
+    <!-- Filtre Nature -->
+    <select class="fi-sel" [(ngModel)]="filtNature" (change)="onFilterChange()">
+      <option value="">Toutes natures</option>
+      <option *ngFor="let n of natures" [value]="n">{{ n }}</option>
+    </select>
+
+    <!-- Filtre Gouvernorat -->
+    <select class="fi-sel" [(ngModel)]="filtGov" (change)="onFilterChange()">
+      <option value="">Tous gouvernorats</option>
+      <option *ngFor="let g of gouvernorats" [value]="g">{{ g }}</option>
+    </select>
+
+    <!-- Filtre Niveau de risque -->
+    <select class="fi-sel" [(ngModel)]="filtNiveau" (change)="onFilterChange()">
+      <option value="">Tous niveaux</option>
+      <option value="critique">🔴 Critique (&gt; 75%)</option>
+      <option value="investigation">🟡 Investigation (40–75%)</option>
+      <option value="conforme">🟢 Conforme (&lt; 40%)</option>
+      <option value="ml">⭐ Analysé ML</option>
+    </select>
+
+    <!-- Compteur résultats -->
+    <span class="fi-count">{{ sinistresAffiches.length | number }} résultats</span>
+  </div>
+
+  <!-- ── Tableau ───────────────────────────────────────────────────────────── -->
+  <div class="table-card">
+
+    <!-- Spinner -->
+    <div class="loading-overlay" *ngIf="loading">
+      <div class="spinner"></div>
+      <p>Chargement des sinistres...</p>
+    </div>
+
+    <div class="table-wrap" [class.is-loading]="loading">
+      <table>
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>N° Sinistre</th>
+            <th>Gouvernorat</th>
+            <th>Nature</th>
+            <th>Montant TND</th>
+            <th>Blessés</th>
+            <th>Décès</th>
+            <th>Score Risque</th>
+            <th>Niveau</th>
+            <th>Action</th>
+          </tr>
+        </thead>
+        <tbody>
+          <!-- Ligne vide -->
+          <tr *ngIf="sinistresAffiches.length === 0 && !loading">
+            <td colspan="10" class="td-empty">
+              <div class="empty-state">
+                <svg width="40" height="40" viewBox="0 0 24 24" fill="none" opacity=".2">
+                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" stroke="#1a56db" stroke-width="2"/>
+                  <polyline points="14,2 14,8 20,8" stroke="#1a56db" stroke-width="2"/>
+                </svg>
+                <p>Aucun sinistre trouvé avec ces critères</p>
+                <button class="btn-link" (click)="resetFiltres()">Effacer les filtres</button>
+              </div>
+            </td>
+          </tr>
+
+          <!-- Données -->
+          <tr *ngFor="let s of sinistresAffiches; let i = index"
+              [class.row-red]="s.score >= 75"
+              [class.row-yel]="s.score >= 40 && s.score < 75">
+            <td class="td-idx">{{ page * pageSize + i + 1 }}</td>
+
+            <!-- N° Sinistre -->
+            <td>
+              <div class="td-num">{{ s.numSinistre }}</div>
+              <div class="td-etat">{{ s.libEtatSinistre }}</div>
+            </td>
+
+            <!-- Gouvernorat -->
+            <td class="td-gov">{{ s.gouvernorat }}</td>
+
+            <!-- Nature -->
+            <td>
+              <span class="nature-pill"
+                    [class.nat-mat]="s.natureSinistre.includes('MAT')"
+                    [class.nat-corp]="s.natureSinistre.includes('CORP')"
+                    [class.nat-ass]="s.natureSinistre.includes('ASS')"
+                    [class.nat-vol]="s.natureSinistre.includes('VOL')">
+                {{ s.natureSinistre }}
+              </span>
+            </td>
+
+            <!-- Montant -->
+            <td class="td-amt">{{ s.montantEvaluation | number:'1.0-0' }}</td>
+
+            <!-- Blessés -->
+            <td class="td-center">
+              <span class="bl-pill" *ngIf="s.nombreBlesses > 0">⚠ {{ s.nombreBlesses }}</span>
+              <span class="na-dash" *ngIf="s.nombreBlesses === 0">—</span>
+            </td>
+
+            <!-- Décès -->
+            <td class="td-center">
+              <span class="dc-pill" *ngIf="s.nombreDeces > 0">☠ {{ s.nombreDeces }}</span>
+              <span class="na-dash" *ngIf="s.nombreDeces === 0">—</span>
+            </td>
+
+            <!-- Score -->
+            <td class="td-score">
+              <div class="score-cell">
+                <div class="score-bar-wrap">
+                  <div class="score-bar-fill"
+                       [style.width.%]="s.score"
+                       [style.background]="scoreColor(s.score)">
+                  </div>
+                </div>
+                <span class="score-val" [style.color]="scoreColor(s.score)">
+                  {{ s.score | number:'1.0-0' }}%
+                </span>
+                <span class="score-est" *ngIf="!s.mlAnalysed" title="Score estimé — cliquer Analyser pour le score ML précis">~</span>
+              </div>
+            </td>
+
+            <!-- Niveau -->
+            <td>
+              <span class="badge" [ngClass]="niveauClass(s.score)">
+                {{ niveauLabel(s.score) }}
+              </span>
+            </td>
+
+            <!-- Action -->
+            <td>
+              <button class="btn-analyse"
+                      (click)="analyserSinistre(s.numSinistre)"
+                      title="Ouvrir dans l'espace analyse ARIA">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none">
+                  <circle cx="11" cy="11" r="8" stroke="currentColor" stroke-width="2"/>
+                  <path d="M21 21l-4.35-4.35" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                </svg>
+                Analyser
+              </button>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- ── Pagination ────────────────────────────────────────────────────── -->
+    <div class="pagination">
+      <button class="pg-btn" [disabled]="page === 0" (click)="goPage(-1)">
+        ‹ Précédent
+      </button>
+
+      <div class="pg-info">
+        Page
+        <input type="number"
+               class="pg-inp"
+               [(ngModel)]="pageInput"
+               min="1"
+               [max]="totalPages"
+               (keyup.enter)="jumpPage()"/>
+        / {{ totalPages | number }}
+      </div>
+
+      <button class="pg-btn pg-go" (click)="jumpPage()">→ Aller</button>
+
+      <button class="pg-btn" [disabled]="page >= totalPages - 1" (click)="goPage(1)">
+        Suivant ›
+      </button>
+    </div>
+
+  </div><!-- /table-card -->
+
+</div><!-- /gs-page -->

@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(find \"c:\\\\Users\\\\AMOULA\\\\OneDrive\\\\Bureau\\\\pfe ghalia\" -name \"*.java\" -o -name \"model.py\" 2>/dev/null | head -20)",
+      "Read(//c/Users/AMOULA/OneDrive/Bureau/pfe ghalia/**)"
+    ],
+    "additionalDirectories": [
+      "c:\\Users\\AMOULA\\OneDrive\\Bureau\\pfe ghalia\\backend-bh-guard\\src\\main\\java\\com\\bhguard\\controllers"
+    ]
+  }
+}
