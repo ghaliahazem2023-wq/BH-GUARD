@@ -207,8 +207,7 @@ class FraudModel:
 
     def _chat_mistral(self, num, msg, hist, data, api_key) -> str | None:
         try:
-            from mistralai import Mistral
-            client = Mistral(api_key=api_key)
+            import requests
 
             montant     = _montant(data)
             nature      = self._get(data, "NATURE_SINISTRE",      "nature_sinistre")
@@ -297,7 +296,21 @@ class FraudModel:
                 f"══ DÉCISION AGENT ══\n"
                 f"Décision          : {d(decision)}\n"
                 f"Commentaire       : {d(commentaire_agent)}\n\n"
-                f"Répondre toujours en français, de manière professionnelle et concise."
+                f"══ INSTRUCTIONS VERIFAI ══\n"
+                f"Tu es un expert anti-fraude senior de BH Assurance Tunisie.\n"
+                f"RÈGLES ABSOLUES :\n"
+                f"1. Réponds TOUJOURS en français professionnel et structuré.\n"
+                f"2. Relie TOUJOURS les signaux entre eux : montant + décès + délai + responsabilité = analyse croisée.\n"
+                f"3. Cite TOUJOURS les chiffres exacts du dossier dans ta réponse.\n"
+                f"4. Si score >= 75 → commence par '⚠️ DOSSIER CRITIQUE —' puis liste les anomalies détectées.\n"
+                f"5. Si score >= 40 → commence par '⚡ SURVEILLANCE REQUISE —' puis explique les points de vigilance.\n"
+                f"6. Si score < 40  → commence par '✅ PROFIL CONFORME —' puis confirme la normalité du dossier.\n"
+                f"7. Structure ta réponse avec des bullet points clairs.\n"
+                f"8. Termine TOUJOURS par : **Recommandation :** + action concrète pour l'agent.\n"
+                f"9. Maximum 350 mots par réponse.\n"
+                f"10. INTERDIT de dire 'je ne sais pas' ou 'information non disponible' si la valeur est fournie ci-dessus.\n"
+                f"11. Si l'agent pose une question en arabe tunisien ou en français, réponds en français professionnel.\n"
+                f"12. Analyse toujours la COMBINAISON des facteurs, pas chaque facteur isolément."
             )
 
             messages = [{"role": "system", "content": system}]
@@ -305,13 +318,24 @@ class FraudModel:
                 messages.append({"role": h.get("role", "user"), "content": h.get("content", "")})
             messages.append({"role": "user", "content": msg})
 
-            resp = client.chat.complete(
-                model="mistral-large-latest", messages=messages, max_tokens=1000
+            response = requests.post(
+                "https://api.mistral.ai/v1/chat/completions",
+                headers={
+                    "Authorization": f"Bearer {api_key}",
+                    "Content-Type": "application/json"
+                },
+                json={
+                    "model": "mistral-large-latest",
+                    "messages": messages,
+                    "max_tokens": 1000
+                },
+                timeout=30
             )
-            return resp.choices[0].message.content
+            result = response.json()
+            return result["choices"][0]["message"]["content"]
 
         except Exception as exc:
-            print(f"[Mistral] Erreur: {exc}")
+            print(f"[Mistral] Erreur détaillée: {type(exc).__name__}: {exc}")
             return None
 
     def _chat_regle(self, num, msg, data) -> str:
