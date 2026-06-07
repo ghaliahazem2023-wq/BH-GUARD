@@ -13,6 +13,8 @@ import { HttpClientModule } from '@angular/common/http';
 import { Router }           from '@angular/router';
 import { HttpClient }       from '@angular/common/http';
 import { FraudService, PredictionResponse, ChatMessage } from '../../services/fraud.service';
+import jsPDF from 'jspdf';
+import html2canvas from 'html2canvas';
 
 interface Alerte  { id:string; num:string; score:number; time:string; lue:boolean; }
 interface Decision{ date:Date; agent:string; num:string; statut:string; score:number; commentaire?:string; }
@@ -117,10 +119,11 @@ export class AgentEspaceComponent implements OnInit, OnDestroy, AfterViewChecked
   }
 
   // ── Alertes ───────────────────────────────────────────────────────────────
-  bellOpen : boolean  = false;
-  usrOpen  : boolean  = false;
-  newAlert : boolean  = false;
-  alertes  : Alerte[] = [];
+  bellOpen      : boolean       = false;
+  usrOpen       : boolean       = false;
+  newAlert      : boolean       = false;
+  alertes       : Alerte[]      = [];
+  private dismissedNums: Set<string> = new Set();
   get unread(): number { return this.alertes.filter(a => !a.lue).length; }
 
   // ── Chat ──────────────────────────────────────────────────────────────────
@@ -181,7 +184,16 @@ export class AgentEspaceComponent implements OnInit, OnDestroy, AfterViewChecked
     // Restaurer les alertes persistées (survive au refresh)
     try {
       const saved = localStorage.getItem('bhguard_alertes');
-      if (saved) this.alertes = JSON.parse(saved);
+      if (saved) {
+        const parsed: Alerte[] = JSON.parse(saved);
+        this.alertes = parsed.map(a => {
+          const d = new Date(a.time);
+          return isNaN(d.getTime()) ? { ...a, time: new Date().toISOString() } : a;
+        });
+        this.saveAlertesToStorage();
+      }
+      const dismissed = localStorage.getItem('bhguard_dismissed');
+      if (dismissed) this.dismissedNums = new Set(JSON.parse(dismissed));
     } catch {}
     this.startMascotAnimations();
     this.loadVaiStats();
@@ -327,18 +339,20 @@ export class AgentEspaceComponent implements OnInit, OnDestroy, AfterViewChecked
 
         // Peupler la cloche avec les sinistres dont le score ML (BD) >= 75
         const critiques = this.sinistres.filter(s => s.mlAnalysed && (s.score || 0) >= 75);
+        let addedCount = 0;
         critiques.forEach(s => {
-          if (!this.alertes.find(a => a.num === s.numSinistre)) {
+          if (!this.dismissedNums.has(s.numSinistre) && !this.alertes.find(a => a.num === s.numSinistre)) {
             this.alertes.unshift({
               id   : s.numSinistre,
               num  : s.numSinistre,
               score: Math.round(s.score!),
-              time : 'Score ML chargé depuis BD',
+              time : new Date().toISOString(),
               lue  : false
             });
+            addedCount++;
           }
         });
-        if (critiques.length > 0) {
+        if (addedCount > 0) {
           this.newAlert = true;
           if (this.alertes.length > 20) this.alertes = this.alertes.slice(0, 20);
           this.saveAlertesToStorage();
@@ -387,18 +401,20 @@ export class AgentEspaceComponent implements OnInit, OnDestroy, AfterViewChecked
           });
         this.dashboardSample = mapped;
         // Pré-alimenter la cloche avec les sinistres à haut risque du sample
+        let addedDash = 0;
         mapped.filter(s => (s.score || 0) >= 75).forEach(s => {
-          if (!this.alertes.find(a => a.num === s.numSinistre)) {
+          if (!this.dismissedNums.has(s.numSinistre) && !this.alertes.find(a => a.num === s.numSinistre)) {
             this.alertes.unshift({
               id   : s.numSinistre,
               num  : s.numSinistre,
               score: Math.round(s.score!),
-              time : 'Détecté automatiquement',
+              time : new Date().toISOString(),
               lue  : false
             });
+            addedDash++;
           }
         });
-        if (mapped.some(s => (s.score || 0) >= 75)) this.newAlert = true;
+        if (addedDash > 0) this.newAlert = true;
         this.cdr.detectChanges();
       }
     });
@@ -544,13 +560,14 @@ export class AgentEspaceComponent implements OnInit, OnDestroy, AfterViewChecked
 
     if (r.score_risque >= 65) this.sinistresEleves++;
     if (r.score_risque >= 75) {
+      this.dismissedNums.delete(r.num_sinistre);
       const existing = this.alertes.findIndex(a => a.num === r.num_sinistre);
       if (existing >= 0) {
-        const updated = { ...this.alertes[existing], score: newScore, time: 'À l\'instant', lue: false };
+        const updated = { ...this.alertes[existing], score: newScore, time: new Date().toISOString(), lue: false };
         this.alertes.splice(existing, 1);
         this.alertes.unshift(updated);
       } else {
-        this.alertes.unshift({ id: r.num_sinistre, num: r.num_sinistre, score: newScore, time: 'À l\'instant', lue: false });
+        this.alertes.unshift({ id: r.num_sinistre, num: r.num_sinistre, score: newScore, time: new Date().toISOString(), lue: false });
       }
       if (this.alertes.length > 20) this.alertes = this.alertes.slice(0, 20);
       this.newAlert = true;
@@ -666,6 +683,15 @@ export class AgentEspaceComponent implements OnInit, OnDestroy, AfterViewChecked
     this.decisionPrise = s.decision || null;
     this.msgs          = [];
     this.loading       = false;
+    this.currentSinistreData = {
+      montantEvaluation  : s.montantEvaluation,
+      gouvernorat        : s.gouvernorat,
+      natureSinistre     : s.natureSinistre,
+      libEtatSinistre    : s.libEtatSinistre,
+      nombreBlesses      : s.nombreBlesses,
+      nombreDeces        : s.nombreDeces,
+      codeResponsabilite : s.codeResponsabilite,
+    };
 
     const score   = s.score ?? 0;
     const formule = s.scoreHeuristique ?? score;
@@ -804,9 +830,11 @@ export class AgentEspaceComponent implements OnInit, OnDestroy, AfterViewChecked
   }
 
   markRead(): void {
-    this.alertes.forEach(a => a.lue = true);
+    this.alertes.forEach(a => this.dismissedNums.add(a.num));
+    this.alertes = [];
     this.newAlert = false;
     this.saveAlertesToStorage();
+    try { localStorage.setItem('bhguard_dismissed', JSON.stringify([...this.dismissedNums])); } catch {}
   }
 
   openAlert(a: Alerte): void {
@@ -817,6 +845,24 @@ export class AgentEspaceComponent implements OnInit, OnDestroy, AfterViewChecked
 
   private saveAlertesToStorage(): void {
     try { localStorage.setItem('bhguard_alertes', JSON.stringify(this.alertes)); } catch {}
+  }
+
+  formatAlertTime(iso: string): string {
+    try {
+      const d = new Date(iso);
+      if (isNaN(d.getTime())) return iso;
+      const diff = (Date.now() - d.getTime()) / 1000;
+      if (diff < 60)    return 'À l\'instant';
+      if (diff < 3600)  return `Il y a ${Math.round(diff / 60)} min`;
+      if (diff < 86400) return `Il y a ${Math.round(diff / 3600)} h`;
+      const yest = new Date(); yest.setDate(yest.getDate() - 1);
+      const hh = d.getHours().toString().padStart(2, '0');
+      const mm = d.getMinutes().toString().padStart(2, '0');
+      if (d.toDateString() === yest.toDateString()) return `Hier ${hh}:${mm}`;
+      const dd = d.getDate().toString().padStart(2, '0');
+      const mo = (d.getMonth() + 1).toString().padStart(2, '0');
+      return `${dd}/${mo} ${hh}:${mm}`;
+    } catch { return iso; }
   }
 
   sendMsg(e: any): void {
@@ -895,13 +941,23 @@ export class AgentEspaceComponent implements OnInit, OnDestroy, AfterViewChecked
     });
   }
 
-  downloadAuditPDF(): void {
+  async downloadAuditPDF(): Promise<void> {
     const r = this.resultat;
     if (!r) return;
 
+    // Appel /predict pour récupérer les données complètes (cumul, dates, contrat…)
+    let fresh: any = null;
+    try {
+      fresh = await this.http.post<any>(
+        'http://localhost:8000/predict',
+        { NUM_SINISTRE: r.num_sinistre }
+      ).toPromise();
+    } catch {}
+
     const s: any = {
-      ...(r.donnees_sinistre      || {}),
-      ...(this.currentSinistreData || {}),
+      ...(this.currentSinistreData     || {}),
+      ...(r.donnees_sinistre           || {}),
+      ...(fresh?.donnees_sinistre      || {}),
     };
 
     const get = (...keys: string[]) => {
@@ -918,10 +974,13 @@ export class AgentEspaceComponent implements OnInit, OnDestroy, AfterViewChecked
     const time     = new Date().toLocaleTimeString('fr-TN', {hour:'2-digit', minute:'2-digit'});
     const agent    = `${this.user?.prenom ?? ''} ${this.user?.nom ?? ''}`.trim();
     const score    = r.score_risque;
+    const sf       = r.score_formule ?? score;
+    const sm       = r.score_ml      ?? score;
     const niveau   = score >= 75 ? 'CRITIQUE' : score >= 40 ? 'RISQUE MODÉRÉ' : 'CONFORME';
+    const color    = score >= 75 ? '#CC2229'  : score >= 40 ? '#F5A623'        : '#16a34a';
+    const lightBg  = score >= 75 ? '#fff5f5'  : score >= 40 ? '#fffbf0'        : '#f0fdf4';
+
     const montant  = parseFloat(get('MONTANT_EVALUATION','montantEvaluation') || '0') || 0;
-    const blesses  = get('NOMBRE_BLESSES','nombreBlesses');
-    const deces    = get('NOMBRE_DECES','nombreDeces');
     const nature   = get('NATURE_SINISTRE','natureSinistre');
     const gouv     = get('GOUVERNORAT','gouvernorat');
     const etat     = get('LIB_ETAT_SINISTRE','libEtatSinistre');
@@ -936,183 +995,54 @@ export class AgentEspaceComponent implements OnInit, OnDestroy, AfterViewChecked
     const usage    = get('usage','USAGE','LIB_USAGE');
     const cumul    = get('cumul_reglement','CUMUL_REGLEMENT','cumulReglement');
     const resp     = get('CODE_RESPONSABILITE','codeResponsabilite');
+    const blesses  = get('NOMBRE_BLESSES','nombreBlesses');
+    const deces    = get('NOMBRE_DECES','nombreDeces');
 
-    const decision    = this.decisionPrise     ?? '—';
+    const decision    = this.decisionPrise     ?? null;
     const commentaire = this.commentaireFraude ?? '';
+    const expl = this.stripMarkdown(
+      (fresh?.explication_ia && !fresh.explication_ia.includes('Score Stocké'))
+        ? fresh.explication_ia
+        : r.explication_ia
+    );
+    const reco = this.stripMarkdown(fresh?.recommandation || r.recommandation);
+
+    const decColor = decision === 'CONFORME' ? '#16a34a' : decision === 'FRAUDE' ? '#CC2229' : '#64748b';
+    const decBg    = decision === 'CONFORME' ? '#f0fdf4' : decision === 'FRAUDE' ? '#fff5f5' : '#f8fafc';
+    const decText  = decision === 'CONFORME' ? '✅ Dossier Validé — Conforme'
+                   : decision === 'FRAUDE'   ? '🚨 Dossier Bloqué — Fraude Suspectée'
+                   : '⏳ En attente de décision';
 
     const flags = (r.flags_detectes || [])
       .map((f: string) => `
-      <tr>
-        <td style="padding:5px 8px;border-bottom:1px solid #f0f0f0">
-          ⚠️ ${f}
-        </td>
-      </tr>`).join('');
+      <div style="display:flex;align-items:flex-start;gap:8px;padding:5px 10px;border-left:3px solid #F5A623;background:#fffbf0;margin-bottom:4px;border-radius:0 3px 3px 0">
+        <span style="color:#F5A623;font-size:10px;flex-shrink:0">⚠</span>
+        <span style="font-size:9px;color:#333">${f}</span>
+      </div>`).join('');
 
     const html = `<!DOCTYPE html>
 <html lang="fr">
-<head>
-  <meta charset="UTF-8"/>
-  <title>Rapport Audit — ${r.num_sinistre}</title>
-  <style>
-    @page {
-      size: A4;
-      margin: 12mm 14mm;
-    }
-    * { margin:0; padding:0; box-sizing:border-box; }
-    body {
-      font-family: Arial, sans-serif;
-      font-size: 9.5px;
-      color: #000;
-      background: #fff;
-      width: 182mm;
-    }
+<head><meta charset="UTF-8"/></head>
+<body style="font-family:Arial,sans-serif;font-size:9.5px;color:#000;background:#fff;margin:0;padding:0;width:794px">
+<div style="padding:45px 53px;box-sizing:border-box;width:794px">
 
-    /* HEADER */
-    .hd {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      padding-bottom: 8px;
-      border-bottom: 2.5px solid #002B80;
-      margin-bottom: 8px;
-    }
-    .hd-l { display:flex; align-items:center; gap:10px; }
-    .hd-l h1 { font-size:14px; font-weight:800; color:#002B80; }
-    .hd-l p  { font-size:8px; color:#666; margin-top:2px; }
-    .hd-r { text-align:right; font-size:8px; color:#444; line-height:1.9; }
+  <!-- PAGE HEADER -->
+  <div style="display:flex;justify-content:space-between;font-size:7.5px;color:#999;margin-bottom:10px;padding-bottom:5px;border-bottom:1px solid #eee">
+    <span>${now} à ${time}</span>
+    <span style="font-weight:700;color:#666">Rapport Audit — ${r.num_sinistre}</span>
+    <span>Agent : ${agent}</span>
+  </div>
 
-    /* SCORE BAND */
-    .sc-band {
-      display: flex; align-items: center; gap: 16px;
-      padding: 8px 12px;
-      background: #f8f8f8;
-      border: 1px solid #ddd;
-      border-radius: 4px;
-      margin-bottom: 8px;
-    }
-    .sc-circle {
-      width: 58px; height: 58px; border-radius: 50%;
-      border: 3.5px solid #000;
-      display: flex; flex-direction: column;
-      align-items: center; justify-content: center;
-      flex-shrink: 0;
-    }
-    .sc-circle .v { font-size:16px; font-weight:800; }
-    .sc-circle .l { font-size:7px; color:#666; }
-    .sc-info .niv {
-      font-size: 11px; font-weight: 800;
-      text-transform: uppercase; letter-spacing: 1px;
-    }
-    .sc-info .det { font-size:8px; color:#555; margin-top:3px; line-height:1.7; }
-
-    /* SECTIONS */
-    .sec { margin-bottom: 7px; }
-    .sec-title {
-      font-size: 8px; font-weight: 700;
-      text-transform: uppercase; letter-spacing: 1px;
-      color: #002B80; padding: 4px 0;
-      border-bottom: 1px solid #002B80;
-      margin-bottom: 6px;
-    }
-
-    /* GRID */
-    table.grid {
-      width: 100%; border-collapse: collapse;
-    }
-    table.grid td {
-      padding: 3px 6px 5px 0;
-      vertical-align: top;
-      width: 33.33%;
-    }
-    .lbl { font-size:7.5px; color:#888; text-transform:uppercase; letter-spacing:.4px; }
-    .val { font-size:9.5px; font-weight:700; color:#000; }
-
-    /* FLAGS */
-    table.flags { width:100%; border-collapse:collapse; }
-    table.flags td {
-      font-size: 9px;
-      padding: 5px 8px;
-      border-bottom: 1px solid #f0f0f0;
-    }
-    .no-flag {
-      font-size:9px; padding:6px 10px;
-      border-left:3px solid #555;
-      background:#f9f9f9;
-    }
-
-    /* EXPLICATION */
-    .explic {
-      font-size: 9px; line-height: 1.65;
-      padding: 7px 10px;
-      border-left: 3px solid #002B80;
-      background: #f8faff;
-    }
-
-    /* DECISION */
-    .dec-box {
-      padding: 7px 10px;
-      border: 1.5px solid #000;
-      border-radius: 3px;
-      font-size: 9.5px;
-      font-weight: 700;
-    }
-    .dec-comment {
-      margin-top: 5px;
-      font-size: 9px;
-      font-weight: 400;
-      color: #444;
-      font-style: italic;
-      border-top: 1px dashed #ccc;
-      padding-top: 5px;
-    }
-
-    /* RECO */
-    .reco {
-      padding: 7px 10px;
-      border-left: 4px solid #000;
-      background: #f9f9f9;
-      font-size: 9.5px;
-      font-weight: 700;
-    }
-
-    /* FOOTER */
-    .ft {
-      display: flex;
-      justify-content: space-between;
-      align-items: flex-end;
-      padding-top: 10px;
-      margin-top: 10px;
-      border-top: 2px solid #002B80;
-    }
-    .ft-l { font-size:8px; color:#555; line-height:1.9; }
-    .ft-l strong { font-size:10px; color:#002B80; }
-    .sig { text-align:center; }
-    .sig .sig-lbl { font-size:8px; color:#666; margin-bottom:5px; }
-    .sig-line { width:160px; height:38px; border-bottom:1.5px solid #000; margin:0 auto 5px; }
-    .sig .sig-name { font-size:9px; font-weight:700; }
-    .sig .sig-role { font-size:8px; color:#555; }
-    .sig .sig-date { font-size:8px; color:#888; }
-
-    .wm {
-      text-align:center; margin-top:8px;
-      font-size:7.5px; color:#bbb; letter-spacing:2px;
-    }
-  </style>
-</head>
-<body>
-
-  <!-- HEADER -->
-  <div class="hd">
-    <div class="hd-l">
-      <img src="http://localhost:4200/assets/logo-bh1.png"
-           style="height:40px;object-fit:contain"
-           onerror="this.style.display='none'"/>
+  <!-- MAIN HEADER -->
+  <div style="display:flex;justify-content:space-between;align-items:center;padding-bottom:10px;border-bottom:2.5px solid #002B80;margin-bottom:12px">
+    <div style="display:flex;align-items:center;gap:12px">
+      <img src="http://localhost:4200/assets/logo-bh1.png" style="height:44px;object-fit:contain" onerror="this.style.display='none'"/>
       <div>
-        <h1>RAPPORT D'AUDIT ANTI-FRAUDE</h1>
-        <p>BH Assurance Tunisie — Système BH Guard</p>
+        <div style="font-size:14px;font-weight:800;color:#002B80;letter-spacing:.5px">RAPPORT D'AUDIT ANTI-FRAUDE</div>
+        <div style="font-size:8px;color:#666;margin-top:2px">BH Assurance Tunisie — Système BH Guard</div>
       </div>
     </div>
-    <div class="hd-r">
+    <div style="text-align:right;font-size:8px;color:#444;line-height:2">
       <div><b>Réf :</b> BHG-${r.num_sinistre}-${Date.now()}</div>
       <div><b>Date :</b> ${now} à ${time}</div>
       <div><b>Agent :</b> ${agent}</div>
@@ -1120,173 +1050,207 @@ export class AgentEspaceComponent implements OnInit, OnDestroy, AfterViewChecked
     </div>
   </div>
 
-  <!-- SCORE -->
-  <div class="sc-band">
-    <div class="sc-circle">
-      <span class="v">${score}%</span>
-      <span class="l">SCORE</span>
+  <!-- SCORE BAND -->
+  <div style="display:flex;align-items:center;gap:14px;padding:9px 14px;border:2px solid ${color};background:${lightBg};border-radius:4px;margin-bottom:10px">
+    <span style="font-size:11px;font-weight:800;color:${color};text-transform:uppercase;letter-spacing:1px;white-space:nowrap">${niveau}</span>
+    <span style="color:#ccc;font-size:16px">|</span>
+    <span style="font-size:10px;font-weight:700;color:#000;white-space:nowrap">Score de risque : ${score}/100</span>
+    <span style="color:#ccc;font-size:16px">|</span>
+    <span style="font-size:8.5px;color:#555">Niveau de risque évalué par VeriAI (Random Forest + Règles métier)</span>
+  </div>
+
+  <!-- SCORE DETAILS -->
+  <div style="display:flex;align-items:center;gap:22px;margin-bottom:14px;padding:10px 14px;background:#fafafa;border:1px solid #eee;border-radius:4px">
+    <div style="width:72px;height:72px;border-radius:50%;border:4px solid ${color};display:flex;flex-direction:column;align-items:center;justify-content:center;flex-shrink:0;background:#fff">
+      <span style="font-size:20px;font-weight:800;color:${color};line-height:1">${score}%</span>
+      <span style="font-size:6px;color:#888;text-align:center;line-height:1.3;margin-top:2px">SCORE<br>GLOBAL</span>
     </div>
-    <div class="sc-info">
-      <div class="niv">${niveau} — Score de risque : ${score}/100</div>
-      <div class="det">
-        Score Formule (règles métier) : <b>${r.score_formule ?? '—'}%</b> &nbsp;|&nbsp;
-        Score ML (Random Forest) : <b>${r.score_ml ?? '—'}%</b> &nbsp;|&nbsp;
-        Score Global : <b>${score}%</b>
-      </div>
-      <div class="det">
-        Formule : (2 × ${r.score_formule ?? '—'} + ${r.score_ml ?? '—'}) / 3 = ${score}
-      </div>
+    <div>
+      <div style="font-size:8.5px;color:#333;margin-bottom:4px">Score Formule (règles métier) — <b>${sf}%</b></div>
+      <div style="font-size:8.5px;color:#333;margin-bottom:4px">Score ML (Random Forest) — <b>${sm}%</b></div>
+      <div style="font-size:8.5px;color:#333;margin-bottom:4px">Score Global (2×Formule + ML) / 3 — <b>${score}%</b></div>
+      <div style="font-size:8px;color:#777">Formule : (2 × ${sf} + ${sm}) / 3 = ${score}</div>
     </div>
   </div>
 
   <!-- 1. IDENTIFICATION -->
-  <div class="sec">
-    <div class="sec-title">1 — Identification du Dossier</div>
-    <table class="grid">
+  <div style="margin-bottom:10px">
+    <div style="font-size:8px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:#0047CC;padding:3px 0 4px;border-bottom:1.5px solid #0047CC;margin-bottom:7px">1 — Identification du Dossier</div>
+    <table style="width:100%;border-collapse:collapse">
       <tr>
-        <td><div class="lbl">N° Sinistre</div><div class="val">${r.num_sinistre}</div></td>
-        <td><div class="lbl">N° Contrat</div><div class="val">${contrat}</div></td>
-        <td><div class="lbl">Type contrat</div><div class="val">${codeType}</div></td>
+        <td style="padding:3px 8px 6px 0;vertical-align:top;width:33%">
+          <div style="font-size:7.5px;color:#888;text-transform:uppercase;letter-spacing:.4px;margin-bottom:2px">N° Sinistre</div>
+          <div style="font-size:9.5px;font-weight:700;color:#111">${r.num_sinistre}</div>
+        </td>
+        <td style="padding:3px 8px 6px 0;vertical-align:top;width:33%">
+          <div style="font-size:7.5px;color:#888;text-transform:uppercase;letter-spacing:.4px;margin-bottom:2px">N° Contrat</div>
+          <div style="font-size:9.5px;font-weight:700;color:#111">${contrat}</div>
+        </td>
+        <td style="padding:3px 8px 6px 0;vertical-align:top;width:33%">
+          <div style="font-size:7.5px;color:#888;text-transform:uppercase;letter-spacing:.4px;margin-bottom:2px">Type contrat</div>
+          <div style="font-size:9.5px;font-weight:700;color:#111">${codeType}</div>
+        </td>
       </tr>
       <tr>
-        <td><div class="lbl">Nature sinistre</div><div class="val">${nature}</div></td>
-        <td><div class="lbl">Type sinistre</div><div class="val">${typeSin}</div></td>
-        <td><div class="lbl">État dossier</div><div class="val">${etat}</div></td>
+        <td style="padding:3px 8px 6px 0;vertical-align:top">
+          <div style="font-size:7.5px;color:#888;text-transform:uppercase;letter-spacing:.4px;margin-bottom:2px">Nature sinistre</div>
+          <div style="font-size:9.5px;font-weight:700;color:#111">${nature}</div>
+        </td>
+        <td style="padding:3px 8px 6px 0;vertical-align:top">
+          <div style="font-size:7.5px;color:#888;text-transform:uppercase;letter-spacing:.4px;margin-bottom:2px">Type sinistre</div>
+          <div style="font-size:9.5px;font-weight:700;color:#111">${typeSin}</div>
+        </td>
+        <td style="padding:3px 8px 6px 0;vertical-align:top">
+          <div style="font-size:7.5px;color:#888;text-transform:uppercase;letter-spacing:.4px;margin-bottom:2px">État dossier</div>
+          <div style="font-size:9.5px;font-weight:700;color:#111">${etat}</div>
+        </td>
       </tr>
       <tr>
-        <td><div class="lbl">Gouvernorat</div><div class="val">${gouv}</div></td>
-        <td><div class="lbl">Année exercice</div><div class="val">${annee}</div></td>
-        <td><div class="lbl">Usage véhicule</div><div class="val">${usage}</div></td>
+        <td style="padding:3px 8px 6px 0;vertical-align:top">
+          <div style="font-size:7.5px;color:#888;text-transform:uppercase;letter-spacing:.4px;margin-bottom:2px">Gouvernorat</div>
+          <div style="font-size:9.5px;font-weight:700;color:#111">${gouv}</div>
+        </td>
+        <td style="padding:3px 8px 6px 0;vertical-align:top">
+          <div style="font-size:7.5px;color:#888;text-transform:uppercase;letter-spacing:.4px;margin-bottom:2px">Année exercice</div>
+          <div style="font-size:9.5px;font-weight:700;color:#111">${annee}</div>
+        </td>
+        <td style="padding:3px 8px 6px 0;vertical-align:top">
+          <div style="font-size:7.5px;color:#888;text-transform:uppercase;letter-spacing:.4px;margin-bottom:2px">Usage véhicule</div>
+          <div style="font-size:9.5px;font-weight:700;color:#111">${usage}</div>
+        </td>
       </tr>
     </table>
   </div>
 
   <!-- 2. CHRONOLOGIE -->
-  <div class="sec">
-    <div class="sec-title">2 — Chronologie</div>
-    <table class="grid">
+  <div style="margin-bottom:10px">
+    <div style="font-size:8px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:#0047CC;padding:3px 0 4px;border-bottom:1.5px solid #0047CC;margin-bottom:7px">2 — Chronologie</div>
+    <table style="width:100%;border-collapse:collapse">
       <tr>
-        <td><div class="lbl">Date survenance</div><div class="val">${dateSurv}</div></td>
-        <td><div class="lbl">Date déclaration</div><div class="val">${dateDecl}</div></td>
-        <td><div class="lbl">Date ouverture</div><div class="val">${dateOuv}</div></td>
+        <td style="padding:3px 8px 6px 0;vertical-align:top;width:33%">
+          <div style="font-size:7.5px;color:#888;text-transform:uppercase;letter-spacing:.4px;margin-bottom:2px">Date survenance</div>
+          <div style="font-size:9.5px;font-weight:700;color:#111">${dateSurv}</div>
+        </td>
+        <td style="padding:3px 8px 6px 0;vertical-align:top;width:33%">
+          <div style="font-size:7.5px;color:#888;text-transform:uppercase;letter-spacing:.4px;margin-bottom:2px">Date déclaration</div>
+          <div style="font-size:9.5px;font-weight:700;color:#111">${dateDecl}</div>
+        </td>
+        <td style="padding:3px 8px 6px 0;vertical-align:top;width:33%">
+          <div style="font-size:7.5px;color:#888;text-transform:uppercase;letter-spacing:.4px;margin-bottom:2px">Date ouverture</div>
+          <div style="font-size:9.5px;font-weight:700;color:#111">${dateOuv}</div>
+        </td>
       </tr>
       <tr>
-        <td colspan="3"><div class="lbl">Lieu accident</div><div class="val">${lieu}</div></td>
+        <td colspan="3" style="padding:3px 8px 6px 0;vertical-align:top">
+          <div style="font-size:7.5px;color:#888;text-transform:uppercase;letter-spacing:.4px;margin-bottom:2px">Lieu accident</div>
+          <div style="font-size:9.5px;font-weight:700;color:#111">${lieu}</div>
+        </td>
       </tr>
     </table>
   </div>
 
-  <!-- 3. FINANCIER -->
-  <div class="sec">
-    <div class="sec-title">3 — Volet Financier</div>
-    <table class="grid">
+  <!-- 3. VOLET FINANCIER -->
+  <div style="margin-bottom:10px">
+    <div style="font-size:8px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:#0047CC;padding:3px 0 4px;border-bottom:1.5px solid #0047CC;margin-bottom:7px">3 — Volet Financier</div>
+    <table style="width:100%;border-collapse:collapse">
       <tr>
-        <td>
-          <div class="lbl">Montant évaluation</div>
-          <div class="val" style="font-size:11px">
-            ${montant > 0 ? montant.toLocaleString('fr-TN') + ' TND' : '—'}
-          </div>
+        <td style="padding:3px 8px 6px 0;vertical-align:top;width:33%">
+          <div style="font-size:7.5px;color:#888;text-transform:uppercase;letter-spacing:.4px;margin-bottom:2px">Montant évaluation</div>
+          <div style="font-size:12px;font-weight:700;color:#CC2229">${montant > 0 ? montant.toLocaleString('fr-TN') + ' TND' : '—'}</div>
         </td>
-        <td><div class="lbl">Cumul règlement</div><div class="val">${cumul !== '—' ? cumul + ' TND' : '—'}</div></td>
-        <td><div class="lbl">Moyenne base BH</div><div class="val">3 736 TND</div></td>
+        <td style="padding:3px 8px 6px 0;vertical-align:top;width:33%">
+          <div style="font-size:7.5px;color:#888;text-transform:uppercase;letter-spacing:.4px;margin-bottom:2px">Cumul règlement</div>
+          <div style="font-size:9.5px;font-weight:700;color:#111">${cumul !== '—' ? cumul + ' TND' : '—'}</div>
+        </td>
+        <td style="padding:3px 8px 6px 0;vertical-align:top;width:33%">
+          <div style="font-size:7.5px;color:#888;text-transform:uppercase;letter-spacing:.4px;margin-bottom:2px">Moyenne base BH</div>
+          <div style="font-size:9.5px;font-weight:700;color:#111">3 736 TND</div>
+        </td>
       </tr>
       <tr>
-        <td><div class="lbl">Responsabilité</div><div class="val">${resp}</div></td>
+        <td style="padding:3px 8px 6px 0;vertical-align:top">
+          <div style="font-size:7.5px;color:#888;text-transform:uppercase;letter-spacing:.4px;margin-bottom:2px">Responsabilité</div>
+          <div style="font-size:9.5px;font-weight:700;color:#111">${resp}</div>
+        </td>
         ${montant > 0 ? `
-        <td colspan="2">
-          <div class="lbl">Ratio vs moyenne</div>
-          <div class="val">${(montant/3736).toFixed(1)}× la moyenne</div>
+        <td colspan="2" style="padding:3px 8px 6px 0;vertical-align:top">
+          <div style="font-size:7.5px;color:#888;text-transform:uppercase;letter-spacing:.4px;margin-bottom:2px">Ratio vs moyenne</div>
+          <div style="font-size:9.5px;font-weight:700;color:#111">${(montant/3736).toFixed(1)}× la moyenne</div>
         </td>` : '<td colspan="2"></td>'}
       </tr>
     </table>
   </div>
 
   <!-- 4. VICTIMES -->
-  <div class="sec">
-    <div class="sec-title">4 — Victimes Déclarées</div>
-    <table class="grid">
+  <div style="margin-bottom:10px">
+    <div style="font-size:8px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:#0047CC;padding:3px 0 4px;border-bottom:1.5px solid #0047CC;margin-bottom:7px">4 — Victimes Déclarées</div>
+    <table style="width:100%;border-collapse:collapse">
       <tr>
-        <td><div class="lbl">Nombre de blessés</div><div class="val">${blesses}</div></td>
-        <td><div class="lbl">Nombre de décès</div><div class="val">${deces}</div></td>
-        <td></td>
+        <td style="padding:3px 8px 6px 0;vertical-align:top;width:33%">
+          <div style="font-size:7.5px;color:#888;text-transform:uppercase;letter-spacing:.4px;margin-bottom:2px">Nombre de blessés</div>
+          <div style="font-size:9.5px;font-weight:700;color:#111">${blesses}</div>
+        </td>
+        <td style="padding:3px 8px 6px 0;vertical-align:top;width:33%">
+          <div style="font-size:7.5px;color:#888;text-transform:uppercase;letter-spacing:.4px;margin-bottom:2px">Nombre de décès</div>
+          <div style="font-size:9.5px;font-weight:700;color:#111">${deces}</div>
+        </td>
+        <td style="padding:3px 8px 6px 0;vertical-align:top;width:33%"></td>
       </tr>
     </table>
   </div>
 
   <!-- 5. SIGNAUX -->
-  <div class="sec">
-    <div class="sec-title">5 — Signaux d'Alerte Détectés</div>
-    ${flags
-      ? `<table class="flags"><tbody>${flags}</tbody></table>`
-      : `<div class="no-flag">✅ Aucun signal d'alerte critique détecté</div>`
-    }
+  <div style="margin-bottom:10px">
+    <div style="font-size:8px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:#0047CC;padding:3px 0 4px;border-bottom:1.5px solid #0047CC;margin-bottom:7px">5 — Signaux d'Alerte Détectés</div>
+    ${flags || `<div style="font-size:9px;padding:6px 10px;border-left:3px solid #16a34a;background:#f0fdf4;color:#16a34a">✅ Aucun signal d'alerte critique détecté</div>`}
   </div>
 
   <!-- 6. ANALYSE VERIAI -->
-  <div class="sec">
-    <div class="sec-title">6 — Analyse VeriAI</div>
-    <div class="explic">${r.explication_ia ?? '—'}</div>
+  <div style="margin-bottom:10px">
+    <div style="font-size:8px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:#0047CC;padding:3px 0 4px;border-bottom:1.5px solid #0047CC;margin-bottom:7px">6 — Analyse VeriAI</div>
+    <div style="font-size:9px;line-height:1.65;padding:8px 12px;border-left:3px solid #0047CC;background:#f0f6ff;border-radius:0 3px 3px 0">${expl}</div>
   </div>
 
   <!-- 7. DÉCISION -->
-  <div class="sec">
-    <div class="sec-title">7 — Décision de l'Agent</div>
-    <div class="dec-box">
-      ${decision === 'CONFORME' ? '✅ Dossier Validé — Conforme'          :
-        decision === 'FRAUDE'   ? '🚨 Dossier Bloqué — Fraude suspectée'  :
-        '⏳ Aucune décision prise pour ce dossier'}
-      ${commentaire
-        ? `<div class="dec-comment">💬 Commentaire agent : ${commentaire}</div>`
-        : ''}
+  <div style="margin-bottom:10px">
+    <div style="font-size:8px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:#0047CC;padding:3px 0 4px;border-bottom:1.5px solid #0047CC;margin-bottom:7px">7 — Décision de l'Agent</div>
+    <div style="padding:8px 12px;border:1.5px solid ${decColor};background:${decBg};border-radius:3px">
+      <div style="font-size:10px;font-weight:700;color:${decColor}">${decText}</div>
+      ${commentaire ? `<div style="margin-top:5px;font-size:8.5px;font-style:italic;color:#555;border-top:1px dashed #ddd;padding-top:5px">💬 ${commentaire}</div>` : ''}
     </div>
   </div>
 
   <!-- 8. RECOMMANDATION -->
-  <div class="sec">
-    <div class="sec-title">8 — Recommandation VeriAI</div>
-    <div class="reco">${r.recommandation ?? '—'}</div>
+  <div style="margin-bottom:18px">
+    <div style="font-size:8px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:#0047CC;padding:3px 0 4px;border-bottom:1.5px solid #0047CC;margin-bottom:7px">8 — Recommandation VeriAI</div>
+    <div style="padding:8px 12px;border-left:4px solid #002B80;background:#f8f8f8;font-size:9.5px;font-weight:700">${reco}</div>
   </div>
 
-  <!-- FOOTER + SIGNATURE -->
-  <div class="ft">
-    <div class="ft-l">
-      <div><strong>BH ASSURANCE</strong></div>
-      <div>Banque de l'Habitat Tunisie</div>
-      <div>VeriAI — Système Anti-Fraude IA</div>
-      <div style="color:#aaa;font-size:7.5px;letter-spacing:1px;margin-top:2px">
-        DOCUMENT CONFIDENTIEL — USAGE INTERNE
-      </div>
+  <!-- FOOTER -->
+  <div style="display:flex;justify-content:space-between;align-items:flex-end;padding-top:10px;border-top:2px solid #002B80">
+    <div style="font-size:8px;color:#555;line-height:1.9">
+      <div style="font-size:10px;font-weight:700;color:#002B80">BH Assurance Tunisie</div>
+      <div>Système BH Guard — Détection de fraude assistée par IA</div>
+      <div>Document confidentiel — Usage interne uniquement</div>
+      <div style="color:#aaa;font-size:7.5px;margin-top:2px">Généré le ${now} par ${agent}</div>
     </div>
-    <div class="sig">
-      <div class="sig-lbl">Visa de l'agent anti-fraude</div>
-      <div class="sig-line"></div>
-      <div class="sig-name">${agent}</div>
-      <div class="sig-role">Agent Anti-Fraude</div>
-      <div class="sig-date">${now}</div>
+    <div style="text-align:center">
+      <div style="font-size:8px;color:#666;margin-bottom:6px">Visa de l'agent anti-fraude</div>
+      <div style="width:180px;height:40px;border-bottom:1.5px solid #000;margin:0 auto 6px"></div>
+      <div style="font-size:9px;font-weight:700">${agent}</div>
+      <div style="font-size:8px;color:#555">Agent Anti-Fraude</div>
+      <div style="font-size:8px;color:#888">${now}</div>
     </div>
   </div>
 
-  <div class="wm">CONFIDENTIEL — BH GUARD — USAGE INTERNE UNIQUEMENT</div>
+  <div style="text-align:center;margin-top:10px;font-size:7.5px;color:#ccc;letter-spacing:2px">CONFIDENTIEL — BH GUARD — USAGE INTERNE UNIQUEMENT</div>
 
+</div>
 </body>
 </html>`;
 
-    // ── تحميل مباشر ────────────────────────────────────────────
-    const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
-    const url  = URL.createObjectURL(blob);
 
-    // فتح في tab جديد
-    window.open(url, '_blank');
-
-    // تحميل مباشر
-    const a       = document.createElement('a');
-    a.href        = url;
-    a.download    = `Rapport-Audit-${r.num_sinistre}-${new Date().toISOString().slice(0,10)}.html`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-
-    setTimeout(() => URL.revokeObjectURL(url), 3000);
+    await this.generatePDF(html, `Rapport-Audit-${r.num_sinistre}-${new Date().toISOString().slice(0,10)}.pdf`);
   }
 
   downloadDecisionPDF(d: any): void {
@@ -1298,19 +1262,15 @@ export class AgentEspaceComponent implements OnInit, OnDestroy, AfterViewChecked
     });
   }
 
-  _generateDecisionPDF(d: any, result: any): void {
-    const agent   = `${this.user?.prenom ?? ''} ${this.user?.nom ?? ''}`.trim();
-    const now     = new Date().toLocaleDateString('fr-TN', {day:'2-digit', month:'long', year:'numeric'});
-    const time    = new Date().toLocaleTimeString('fr-TN', {hour:'2-digit', minute:'2-digit'});
-    const score   = d.score ?? 0;
-    const statut  = d.statut ?? '—';
-    const niveau  = score >= 75 ? 'CRITIQUE' : score >= 40 ? 'RISQUE MODÉRÉ' : 'CONFORME';
-    const dateD   = new Date(d.date).toLocaleDateString('fr-TN', {
-      day:'2-digit', month:'long', year:'numeric'
-    });
-    const timeD   = new Date(d.date).toLocaleTimeString('fr-TN', {
-      hour:'2-digit', minute:'2-digit'
-    });
+  async _generateDecisionPDF(d: any, result: any): Promise<void> {
+    const agent  = `${this.user?.prenom ?? ''} ${this.user?.nom ?? ''}`.trim();
+    const now    = new Date().toLocaleDateString('fr-TN', {day:'2-digit', month:'long', year:'numeric'});
+    const time   = new Date().toLocaleTimeString('fr-TN', {hour:'2-digit', minute:'2-digit'});
+    const score  = d.score ?? 0;
+    const statut = d.statut ?? '—';
+    const niveau = score >= 75 ? 'CRITIQUE' : score >= 40 ? 'RISQUE MODÉRÉ' : 'CONFORME';
+    const dateD  = new Date(d.date).toLocaleDateString('fr-TN', {day:'2-digit', month:'long', year:'numeric'});
+    const timeD  = new Date(d.date).toLocaleTimeString('fr-TN', {hour:'2-digit', minute:'2-digit'});
 
     const s: any = { ...(result?.donnees_sinistre || {}) };
 
@@ -1336,8 +1296,8 @@ export class AgentEspaceComponent implements OnInit, OnDestroy, AfterViewChecked
     const resp         = get('CODE_RESPONSABILITE','codeResponsabilite');
     const cumul        = get('cumul_reglement','CUMUL_REGLEMENT','cumulReglement');
     const usage        = get('usage','USAGE','LIB_USAGE');
-    const explication  = result?.explication_ia  || '—';
-    const recommandation = result?.recommandation  || '—';
+    const explication    = this.stripMarkdown(result?.explication_ia  || '—');
+    const recommandation = this.stripMarkdown(result?.recommandation || '—');
     const scoreFormule = result?.score_formule ?? '—';
     const scoreMl      = result?.score_ml      ?? '—';
 
@@ -1345,117 +1305,307 @@ export class AgentEspaceComponent implements OnInit, OnDestroy, AfterViewChecked
       .map((f: string) => `<tr><td style="padding:5px 8px;border-bottom:1px solid #f0f0f0">⚠️ ${f}</td></tr>`)
       .join('');
 
+    const scoreColor = score >= 75 ? '#CC2229' : score >= 40 ? '#F5A623' : '#16a34a';
+    const scoreBg    = score >= 75 ? '#fff5f5' : score >= 40 ? '#fffbf0' : '#f0fdf4';
+    const niveauText = score >= 75 ? 'CRITIQUE' : score >= 40 ? 'RISQUE MODÉRÉ' : 'CONFORME';
+    const decColor2  = statut === 'CONFORME' ? '#16a34a' : '#CC2229';
+    const decBg2     = statut === 'CONFORME' ? '#f0fdf4' : '#fff5f5';
+    const decIcon    = statut === 'CONFORME' ? '✅' : '🚨';
+    const decLabel   = statut === 'CONFORME' ? 'DOSSIER VALIDÉ — CONFORME' : 'DOSSIER BLOQUÉ — FRAUDE SUSPECTÉE';
+
     const html = `<!DOCTYPE html>
 <html lang="fr">
-<head>
-  <meta charset="UTF-8"/>
-  <title>Décision — ${d.num}</title>
-  <style>
-    @page { size: A4; margin: 14mm 16mm; }
-    * { margin:0; padding:0; box-sizing:border-box; }
-    body {
-      font-family: Arial, sans-serif;
-      font-size: 10px; color: #000; background: #fff;
-      width: 178mm;
-    }
+<head><meta charset="UTF-8"/></head>
+<body style="font-family:Arial,sans-serif;font-size:9.5px;color:#000;background:#fff;margin:0;padding:0;width:794px">
+<div style="padding:45px 53px;box-sizing:border-box;width:794px">
 
-    /* HEADER */
-    .hd {
-      display: flex; justify-content: space-between; align-items: center;
-      padding-bottom: 10px;
-      border-bottom: 2.5px solid #002B80;
-      margin-bottom: 14px;
+  <!-- PAGE HEADER -->
+  <div style="display:flex;justify-content:space-between;font-size:7.5px;color:#999;margin-bottom:10px;padding-bottom:5px;border-bottom:1px solid #eee">
+    <span>${now} à ${time}</span>
+    <span style="font-weight:700;color:#666">Rapport Décision — ${d.num}</span>
+    <span>Agent : ${agent}</span>
+  </div>
+
+  <!-- MAIN HEADER -->
+  <div style="display:flex;justify-content:space-between;align-items:center;padding-bottom:10px;border-bottom:2.5px solid #002B80;margin-bottom:12px">
+    <div style="display:flex;align-items:center;gap:12px">
+      <img src="http://localhost:4200/assets/logo-bh1.png" style="height:44px;object-fit:contain" onerror="this.style.display='none'"/>
+      <div>
+        <div style="font-size:14px;font-weight:800;color:#002B80;letter-spacing:.5px">RAPPORT D'AUDIT ANTI-FRAUDE</div>
+        <div style="font-size:8px;color:#666;margin-top:2px">BH Assurance Tunisie — Système BH Guard</div>
+      </div>
+    </div>
+    <div style="text-align:right;font-size:8px;color:#444;line-height:2">
+      <div><b>Réf :</b> BHG-${d.num}-${Date.now()}</div>
+      <div><b>Généré le :</b> ${now} à ${time}</div>
+      <div><b>Agent :</b> ${agent}</div>
+      <div><b>N° Sinistre :</b> ${d.num}</div>
+    </div>
+  </div>
+
+  <!-- DÉCISION BADGE -->
+  <div style="text-align:center;padding:12px 14px;margin-bottom:12px;border-radius:5px;border:2px solid ${decColor2};background:${decBg2}">
+    <div style="font-size:22px;margin-bottom:4px">${decIcon}</div>
+    <div style="font-size:13px;font-weight:800;color:${decColor2};text-transform:uppercase;letter-spacing:1px">${decLabel}</div>
+    <div style="font-size:8.5px;color:#666;margin-top:3px">Décision prise le ${dateD} à ${timeD} par ${agent}</div>
+  </div>
+
+  <!-- SCORE BAND -->
+  <div style="display:flex;align-items:center;gap:14px;padding:9px 14px;border:2px solid ${scoreColor};background:${scoreBg};border-radius:4px;margin-bottom:10px">
+    <span style="font-size:11px;font-weight:800;color:${scoreColor};text-transform:uppercase;letter-spacing:1px;white-space:nowrap">${niveauText}</span>
+    <span style="color:#ccc;font-size:16px">|</span>
+    <span style="font-size:10px;font-weight:700;color:#000;white-space:nowrap">Score de risque : ${score}/100</span>
+    <span style="color:#ccc;font-size:16px">|</span>
+    <span style="font-size:8.5px;color:#555">Niveau de risque évalué par VeriAI (Random Forest + Règles métier)</span>
+  </div>
+
+  <!-- SCORE DETAILS -->
+  <div style="display:flex;align-items:center;gap:22px;margin-bottom:14px;padding:10px 14px;background:#fafafa;border:1px solid #eee;border-radius:4px">
+    <div style="width:72px;height:72px;border-radius:50%;border:4px solid ${scoreColor};display:flex;flex-direction:column;align-items:center;justify-content:center;flex-shrink:0;background:#fff">
+      <span style="font-size:20px;font-weight:800;color:${scoreColor};line-height:1">${score}%</span>
+      <span style="font-size:6px;color:#888;text-align:center;line-height:1.3;margin-top:2px">SCORE<br>GLOBAL</span>
+    </div>
+    <div>
+      <div style="font-size:8.5px;color:#333;margin-bottom:4px">Score Formule (règles métier) — <b>${scoreFormule}%</b></div>
+      <div style="font-size:8.5px;color:#333;margin-bottom:4px">Score ML (Random Forest) — <b>${scoreMl}%</b></div>
+      <div style="font-size:8.5px;color:#333;margin-bottom:4px">Score Global (2×Formule + ML) / 3 — <b>${score}%</b></div>
+      <div style="font-size:8px;color:#777">Formule : (2 × ${scoreFormule} + ${scoreMl}) / 3 = ${score}</div>
+    </div>
+  </div>
+
+  <!-- 1. IDENTIFICATION -->
+  <div style="margin-bottom:10px">
+    <div style="font-size:8px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:#0047CC;padding:3px 0 4px;border-bottom:1.5px solid #0047CC;margin-bottom:7px">1 — Identification du Dossier</div>
+    <table style="width:100%;border-collapse:collapse">
+      <tr>
+        <td style="padding:3px 8px 6px 0;vertical-align:top;width:33%">
+          <div style="font-size:7.5px;color:#888;text-transform:uppercase;letter-spacing:.4px;margin-bottom:2px">N° Sinistre</div>
+          <div style="font-size:9.5px;font-weight:700;color:#111">${d.num}</div>
+        </td>
+        <td style="padding:3px 8px 6px 0;vertical-align:top;width:33%">
+          <div style="font-size:7.5px;color:#888;text-transform:uppercase;letter-spacing:.4px;margin-bottom:2px">N° Contrat</div>
+          <div style="font-size:9.5px;font-weight:700;color:#111">${contrat}</div>
+        </td>
+        <td style="padding:3px 8px 6px 0;vertical-align:top;width:33%">
+          <div style="font-size:7.5px;color:#888;text-transform:uppercase;letter-spacing:.4px;margin-bottom:2px">Nature sinistre</div>
+          <div style="font-size:9.5px;font-weight:700;color:#111">${nature}</div>
+        </td>
+      </tr>
+      <tr>
+        <td style="padding:3px 8px 6px 0;vertical-align:top">
+          <div style="font-size:7.5px;color:#888;text-transform:uppercase;letter-spacing:.4px;margin-bottom:2px">Gouvernorat</div>
+          <div style="font-size:9.5px;font-weight:700;color:#111">${gouv}</div>
+        </td>
+        <td style="padding:3px 8px 6px 0;vertical-align:top">
+          <div style="font-size:7.5px;color:#888;text-transform:uppercase;letter-spacing:.4px;margin-bottom:2px">État dossier</div>
+          <div style="font-size:9.5px;font-weight:700;color:#111">${etat}</div>
+        </td>
+        <td style="padding:3px 8px 6px 0;vertical-align:top">
+          <div style="font-size:7.5px;color:#888;text-transform:uppercase;letter-spacing:.4px;margin-bottom:2px">Usage véhicule</div>
+          <div style="font-size:9.5px;font-weight:700;color:#111">${usage}</div>
+        </td>
+      </tr>
+    </table>
+  </div>
+
+  <!-- 2. CHRONOLOGIE -->
+  <div style="margin-bottom:10px">
+    <div style="font-size:8px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:#0047CC;padding:3px 0 4px;border-bottom:1.5px solid #0047CC;margin-bottom:7px">2 — Chronologie</div>
+    <table style="width:100%;border-collapse:collapse">
+      <tr>
+        <td style="padding:3px 8px 6px 0;vertical-align:top;width:33%">
+          <div style="font-size:7.5px;color:#888;text-transform:uppercase;letter-spacing:.4px;margin-bottom:2px">Date survenance</div>
+          <div style="font-size:9.5px;font-weight:700;color:#111">${dateSurv}</div>
+        </td>
+        <td style="padding:3px 8px 6px 0;vertical-align:top;width:33%">
+          <div style="font-size:7.5px;color:#888;text-transform:uppercase;letter-spacing:.4px;margin-bottom:2px">Date déclaration</div>
+          <div style="font-size:9.5px;font-weight:700;color:#111">${dateDecl}</div>
+        </td>
+        <td style="padding:3px 8px 6px 0;vertical-align:top;width:33%">
+          <div style="font-size:7.5px;color:#888;text-transform:uppercase;letter-spacing:.4px;margin-bottom:2px">Date décision</div>
+          <div style="font-size:9.5px;font-weight:700;color:#111">${dateD}</div>
+        </td>
+      </tr>
+    </table>
+  </div>
+
+  <!-- 3. VOLET FINANCIER -->
+  <div style="margin-bottom:10px">
+    <div style="font-size:8px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:#0047CC;padding:3px 0 4px;border-bottom:1.5px solid #0047CC;margin-bottom:7px">3 — Volet Financier</div>
+    <table style="width:100%;border-collapse:collapse">
+      <tr>
+        <td style="padding:3px 8px 6px 0;vertical-align:top;width:33%">
+          <div style="font-size:7.5px;color:#888;text-transform:uppercase;letter-spacing:.4px;margin-bottom:2px">Montant évaluation</div>
+          <div style="font-size:12px;font-weight:700;color:#CC2229">${montant > 0 ? montant.toLocaleString('fr-TN') + ' TND' : '—'}</div>
+        </td>
+        <td style="padding:3px 8px 6px 0;vertical-align:top;width:33%">
+          <div style="font-size:7.5px;color:#888;text-transform:uppercase;letter-spacing:.4px;margin-bottom:2px">Cumul règlement</div>
+          <div style="font-size:9.5px;font-weight:700;color:#111">${cumul !== '—' ? cumul + ' TND' : '—'}</div>
+        </td>
+        <td style="padding:3px 8px 6px 0;vertical-align:top;width:33%">
+          <div style="font-size:7.5px;color:#888;text-transform:uppercase;letter-spacing:.4px;margin-bottom:2px">Responsabilité</div>
+          <div style="font-size:9.5px;font-weight:700;color:#111">${resp}</div>
+        </td>
+      </tr>
+      <tr>
+        <td style="padding:3px 8px 6px 0;vertical-align:top">
+          <div style="font-size:7.5px;color:#888;text-transform:uppercase;letter-spacing:.4px;margin-bottom:2px">Blessés</div>
+          <div style="font-size:9.5px;font-weight:700;color:#111">${blesses}</div>
+        </td>
+        <td style="padding:3px 8px 6px 0;vertical-align:top">
+          <div style="font-size:7.5px;color:#888;text-transform:uppercase;letter-spacing:.4px;margin-bottom:2px">Décès</div>
+          <div style="font-size:9.5px;font-weight:700;color:#111">${deces}</div>
+        </td>
+        <td style="padding:3px 8px 6px 0;vertical-align:top">
+          <div style="font-size:7.5px;color:#888;text-transform:uppercase;letter-spacing:.4px;margin-bottom:2px">Moyenne base BH</div>
+          <div style="font-size:9.5px;font-weight:700;color:#111">3 736 TND</div>
+        </td>
+      </tr>
+    </table>
+  </div>
+
+  <!-- 4. SIGNAUX D'ALERTE -->
+  <div style="margin-bottom:10px">
+    <div style="font-size:8px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:#0047CC;padding:3px 0 4px;border-bottom:1.5px solid #0047CC;margin-bottom:7px">4 — Signaux d'Alerte</div>
+    ${(result?.flags_detectes || d.flags || []).length
+      ? (result?.flags_detectes || d.flags || []).map((f: string) => `
+        <div style="display:flex;align-items:flex-start;gap:8px;padding:5px 10px;border-left:3px solid #F5A623;background:#fffbf0;margin-bottom:4px;border-radius:0 3px 3px 0">
+          <span style="color:#F5A623;font-size:10px;flex-shrink:0">⚠</span>
+          <span style="font-size:9px;color:#333">${f}</span>
+        </div>`).join('')
+      : `<div style="font-size:9px;padding:6px 10px;border-left:3px solid #16a34a;background:#f0fdf4;color:#16a34a">✅ Aucun signal d'alerte critique détecté</div>`
+    }
+  </div>
+
+  <!-- 5. ANALYSE VERIAI -->
+  <div style="margin-bottom:10px">
+    <div style="font-size:8px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:#0047CC;padding:3px 0 4px;border-bottom:1.5px solid #0047CC;margin-bottom:7px">5 — Analyse VeriAI</div>
+    <div style="font-size:9px;line-height:1.65;padding:8px 12px;border-left:3px solid #0047CC;background:#f0f6ff;border-radius:0 3px 3px 0">${explication}</div>
+  </div>
+
+  <!-- 6. DÉCISION & COMMENTAIRE -->
+  <div style="margin-bottom:10px">
+    <div style="font-size:8px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:#0047CC;padding:3px 0 4px;border-bottom:1.5px solid #0047CC;margin-bottom:7px">6 — Décision &amp; Commentaire de l'Agent</div>
+    ${d.commentaire
+      ? `<div style="padding:8px 12px;border-left:4px solid ${decColor2};background:${decBg2};font-size:9.5px;line-height:1.7;font-style:italic">💬 ${d.commentaire}</div>`
+      : `<div style="padding:8px 12px;border-left:3px solid #ccc;background:#f9f9f9;font-size:9px;color:#888;font-style:italic">Aucun commentaire saisi pour cette décision.</div>`
+    }
+  </div>
+
+  <!-- 7. RECOMMANDATION -->
+  <div style="margin-bottom:18px">
+    <div style="font-size:8px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:#0047CC;padding:3px 0 4px;border-bottom:1.5px solid #0047CC;margin-bottom:7px">7 — Recommandation VeriAI</div>
+    <div style="padding:8px 12px;border-left:4px solid #002B80;background:#f8f8f8;font-size:9.5px;font-weight:700">${recommandation}</div>
+  </div>
+
+  <!-- FOOTER -->
+  <div style="display:flex;justify-content:space-between;align-items:flex-end;padding-top:10px;border-top:2px solid #002B80">
+    <div style="font-size:8px;color:#555;line-height:1.9">
+      <div style="font-size:10px;font-weight:700;color:#002B80">BH Assurance Tunisie</div>
+      <div>Système BH Guard — Détection de fraude assistée par IA</div>
+      <div>Document confidentiel — Usage interne uniquement</div>
+      <div style="color:#aaa;font-size:7.5px;margin-top:2px">Généré le ${now} par ${agent}</div>
+    </div>
+    <div style="text-align:center">
+      <div style="font-size:8px;color:#666;margin-bottom:6px">Visa de l'agent anti-fraude</div>
+      <div style="width:180px;height:40px;border-bottom:1.5px solid #000;margin:0 auto 6px"></div>
+      <div style="font-size:9px;font-weight:700">${agent}</div>
+      <div style="font-size:8px;color:#555">Agent Anti-Fraude — BH Assurance</div>
+      <div style="font-size:8px;color:#888">${now}</div>
+    </div>
+  </div>
+
+  <div style="text-align:center;margin-top:10px;font-size:7.5px;color:#ccc;letter-spacing:2px">CONFIDENTIEL — BH GUARD — USAGE INTERNE UNIQUEMENT</div>
+
+</div>
+</body>
+</html>`;
+    if (false) { const _x = `
+      display:flex; justify-content:space-between; align-items:center;
+      padding-bottom:8px; border-bottom:2.5px solid #002B80; margin-bottom:10px;
     }
     .hd-l { display:flex; align-items:center; gap:10px; }
-    .hd-l h1 { font-size:15px; font-weight:800; color:#002B80; }
-    .hd-l p  { font-size:8.5px; color:#666; margin-top:2px; }
-    .hd-r { text-align:right; font-size:8.5px; color:#444; line-height:2; }
+    .hd-l h1 { font-size:14px; font-weight:800; color:#002B80; }
+    .hd-l p  { font-size:8px; color:#666; margin-top:2px; }
+    .hd-r { text-align:right; font-size:8px; color:#444; line-height:1.9; }
 
-    /* DECISION BADGE */
     .dec-badge {
-      text-align: center;
-      padding: 18px;
-      margin-bottom: 16px;
-      border-radius: 6px;
-      border: 2px solid ${statut === 'CONFORME' ? '#16a34a' : '#CC2229'};
-      background: ${statut === 'CONFORME' ? '#f0fdf4' : '#fff5f5'};
+      text-align:center; padding:14px; margin-bottom:10px;
+      border-radius:5px;
+      border:2px solid ${statut === 'CONFORME' ? '#16a34a' : '#CC2229'};
+      background:${statut === 'CONFORME' ? '#f0fdf4' : '#fff5f5'};
     }
-    .dec-badge .icon { font-size: 32px; display:block; margin-bottom:6px; }
+    .dec-badge .icon { font-size:26px; display:block; margin-bottom:4px; }
     .dec-badge .title {
-      font-size: 16px; font-weight: 800;
-      color: ${statut === 'CONFORME' ? '#16a34a' : '#CC2229'};
-      text-transform: uppercase; letter-spacing: 1px;
+      font-size:14px; font-weight:800;
+      color:${statut === 'CONFORME' ? '#16a34a' : '#CC2229'};
+      text-transform:uppercase; letter-spacing:1px;
     }
-    .dec-badge .sub { font-size: 9px; color: #666; margin-top: 4px; }
+    .dec-badge .sub { font-size:8.5px; color:#666; margin-top:3px; }
 
-    /* SECTIONS */
-    .sec { margin-bottom: 12px; }
-    .sec-title {
-      font-size: 8.5px; font-weight: 700;
-      text-transform: uppercase; letter-spacing: 1px;
-      color: #002B80; padding: 4px 0;
-      border-bottom: 1px solid #002B80;
-      margin-bottom: 8px;
-    }
-    table.grid { width:100%; border-collapse:collapse; }
-    table.grid td { padding: 4px 8px 6px 0; vertical-align:top; width:50%; }
-    .lbl { font-size:8px; color:#888; text-transform:uppercase; letter-spacing:.4px; }
-    .val { font-size:10px; font-weight:700; }
-
-    /* SCORE */
-    .score-row {
-      display: flex; align-items: center; gap: 16px;
-      padding: 10px 14px;
-      background: #f8f8f8; border: 1px solid #ddd;
-      border-radius: 4px; margin-bottom: 14px;
+    .sc-band {
+      display:flex; align-items:center; gap:14px;
+      padding:8px 12px; background:#f8f8f8;
+      border:1px solid #ddd; border-radius:4px; margin-bottom:10px;
     }
     .sc-circle {
-      width: 62px; height: 62px; border-radius: 50%;
-      border: 3.5px solid ${score >= 75 ? '#CC2229' : score >= 40 ? '#F5A623' : '#16a34a'};
-      display: flex; flex-direction: column;
-      align-items: center; justify-content: center; flex-shrink:0;
+      width:55px; height:55px; border-radius:50%;
+      border:3.5px solid ${score >= 75 ? '#CC2229' : score >= 40 ? '#F5A623' : '#16a34a'};
+      display:flex; flex-direction:column;
+      align-items:center; justify-content:center; flex-shrink:0;
     }
     .sc-circle .v {
-      font-size: 17px; font-weight: 800;
-      color: ${score >= 75 ? '#CC2229' : score >= 40 ? '#F5A623' : '#16a34a'};
+      font-size:15px; font-weight:800;
+      color:${score >= 75 ? '#CC2229' : score >= 40 ? '#F5A623' : '#16a34a'};
     }
-    .sc-circle .l { font-size: 7px; color: #888; }
-    .sc-info .niv { font-size:11px; font-weight:800; text-transform:uppercase; }
-    .sc-info .det { font-size:8.5px; color:#555; margin-top:4px; line-height:1.7; }
+    .sc-circle .l { font-size:7px; color:#888; }
+    .sc-info .niv { font-size:10px; font-weight:800; text-transform:uppercase; }
+    .sc-info .det { font-size:8px; color:#555; margin-top:3px; line-height:1.7; }
 
-    /* COMMENTAIRE */
+    .sec { margin-bottom:8px; }
+    .sec-title {
+      font-size:8px; font-weight:700; text-transform:uppercase;
+      letter-spacing:1px; color:#002B80;
+      padding:3px 0; border-bottom:1px solid #002B80; margin-bottom:6px;
+    }
+    table.grid { width:100%; border-collapse:collapse; }
+    table.grid td { padding:3px 6px 5px 0; vertical-align:top; width:33.33%; }
+    .lbl { font-size:7.5px; color:#888; text-transform:uppercase; letter-spacing:.4px; }
+    .val { font-size:9.5px; font-weight:700; }
+
+    table.flags { width:100%; border-collapse:collapse; }
+    .no-flag { font-size:9px; padding:5px 10px; border-left:3px solid #555; background:#f9f9f9; }
+    .explic {
+      font-size:9px; line-height:1.65; padding:7px 10px;
+      border-left:3px solid #002B80; background:#f8faff;
+    }
     .comment-box {
-      padding: 12px 14px;
-      border-left: 4px solid ${statut === 'CONFORME' ? '#16a34a' : '#CC2229'};
-      background: ${statut === 'CONFORME' ? '#f0fdf4' : '#fff5f5'};
-      font-size: 10px; line-height: 1.7;
-      border-radius: 0 4px 4px 0;
+      padding:8px 12px;
+      border-left:4px solid ${statut === 'CONFORME' ? '#16a34a' : '#CC2229'};
+      background:${statut === 'CONFORME' ? '#f0fdf4' : '#fff5f5'};
+      font-size:9.5px; line-height:1.7; font-style:italic;
     }
     .no-comment {
-      padding: 10px 14px;
-      border-left: 3px solid #ccc;
-      background: #f9f9f9;
-      font-size: 9.5px; color: #888; font-style: italic;
+      padding:8px 12px; border-left:3px solid #ccc;
+      background:#f9f9f9; font-size:9px; color:#888; font-style:italic;
     }
-
-    /* FOOTER */
+    .reco {
+      padding:7px 10px; border-left:4px solid #000;
+      background:#f9f9f9; font-size:9.5px; font-weight:700;
+    }
     .ft {
-      display: flex; justify-content: space-between; align-items: flex-end;
-      padding-top: 14px; margin-top: 16px;
-      border-top: 2px solid #002B80;
+      display:flex; justify-content:space-between; align-items:flex-end;
+      padding-top:10px; margin-top:10px; border-top:2px solid #002B80;
     }
-    .ft-l { font-size:8.5px; color:#555; line-height:1.9; }
+    .ft-l { font-size:8px; color:#555; line-height:1.9; }
     .ft-l strong { font-size:10px; color:#002B80; }
     .sig { text-align:center; }
-    .sig-lbl { font-size:8px; color:#666; margin-bottom:6px; }
-    .sig-line { width:160px; height:40px; border-bottom:1.5px solid #000; margin:0 auto 5px; }
-    .sig-name { font-size:9.5px; font-weight:700; }
+    .sig-lbl { font-size:8px; color:#666; margin-bottom:5px; }
+    .sig-line { width:160px; height:38px; border-bottom:1.5px solid #000; margin:0 auto 5px; }
+    .sig-name { font-size:9px; font-weight:700; }
     .sig-role { font-size:8px; color:#555; }
     .sig-date { font-size:8px; color:#888; }
-    .wm {
-      text-align:center; margin-top:10px;
-      font-size:7.5px; color:#bbb; letter-spacing:2px;
-    }
+    .wm { text-align:center; margin-top:8px; font-size:7.5px; color:#bbb; letter-spacing:2px; }
   </style>
 </head>
 <body>
@@ -1467,14 +1617,15 @@ export class AgentEspaceComponent implements OnInit, OnDestroy, AfterViewChecked
            style="height:40px;object-fit:contain"
            onerror="this.style.display='none'"/>
       <div>
-        <h1>FICHE DE DÉCISION AGENT</h1>
-        <p>BH Assurance Tunisie — Système BH Guard Anti-Fraude</p>
+        <h1>RAPPORT D'AUDIT ANTI-FRAUDE</h1>
+        <p>BH Assurance Tunisie — Système BH Guard</p>
       </div>
     </div>
     <div class="hd-r">
-      <div><b>Réf :</b> DEC-${d.num}-${Date.now()}</div>
+      <div><b>Réf :</b> BHG-${d.num}-${Date.now()}</div>
       <div><b>Généré le :</b> ${now} à ${time}</div>
       <div><b>Agent :</b> ${agent}</div>
+      <div><b>N° Sinistre :</b> ${d.num}</div>
     </div>
   </div>
 
@@ -1484,13 +1635,11 @@ export class AgentEspaceComponent implements OnInit, OnDestroy, AfterViewChecked
     <div class="title">
       ${statut === 'CONFORME' ? 'Dossier Validé — Conforme' : 'Dossier Bloqué — Fraude Suspectée'}
     </div>
-    <div class="sub">
-      Décision prise le ${dateD} à ${timeD} par ${agent}
-    </div>
+    <div class="sub">Décision prise le ${dateD} à ${timeD} par ${agent}</div>
   </div>
 
   <!-- SCORE -->
-  <div class="score-row">
+  <div class="sc-band">
     <div class="sc-circle">
       <span class="v">${score}%</span>
       <span class="l">SCORE</span>
@@ -1498,78 +1647,107 @@ export class AgentEspaceComponent implements OnInit, OnDestroy, AfterViewChecked
     <div class="sc-info">
       <div class="niv">${niveau} — Score de risque : ${score}/100</div>
       <div class="det">
-        Sinistre N° <b>${d.num}</b> — Analysé par VeriAI (Random Forest + Règles métier)
+        Score Formule : <b>${scoreFormule}%</b> &nbsp;|&nbsp;
+        Score ML : <b>${scoreMl}%</b> &nbsp;|&nbsp;
+        Global : <b>${score}%</b>
       </div>
-      <div class="det">
-        Seuils : ✅ Conforme &lt; 40% &nbsp;|&nbsp;
-                 ⚡ Modéré 40-74% &nbsp;|&nbsp;
-                 🚨 Critique ≥ 75%
-      </div>
+      <div class="det">Formule : (2 × ${scoreFormule} + ${scoreMl}) / 3 = ${score}</div>
     </div>
   </div>
 
-  <!-- INFOS DÉCISION -->
+  <!-- 1. IDENTIFICATION -->
   <div class="sec">
-    <div class="sec-title">Informations de la Décision</div>
+    <div class="sec-title">1 — Identification du Dossier</div>
     <table class="grid">
       <tr>
-        <td>
-          <div class="lbl">N° Sinistre</div>
-          <div class="val">${d.num}</div>
-        </td>
-        <td>
-          <div class="lbl">Score de risque</div>
-          <div class="val" style="color:${score >= 75 ? '#CC2229' : score >= 40 ? '#F5A623' : '#16a34a'}">
-            ${score}% — ${niveau}
-          </div>
-        </td>
+        <td><div class="lbl">N° Sinistre</div><div class="val">${d.num}</div></td>
+        <td><div class="lbl">N° Contrat</div><div class="val">${contrat}</div></td>
+        <td><div class="lbl">Nature sinistre</div><div class="val">${nature}</div></td>
       </tr>
       <tr>
-        <td>
-          <div class="lbl">Date de décision</div>
-          <div class="val">${dateD}</div>
-        </td>
-        <td>
-          <div class="lbl">Heure</div>
-          <div class="val">${timeD}</div>
-        </td>
-      </tr>
-      <tr>
-        <td>
-          <div class="lbl">Agent décideur</div>
-          <div class="val">${d.agent ?? agent}</div>
-        </td>
-        <td>
-          <div class="lbl">Statut final</div>
-          <div class="val" style="color:${statut === 'CONFORME' ? '#16a34a' : '#CC2229'}">
-            ${statut === 'CONFORME' ? '✅ CONFORME' : '🚨 FRAUDE SUSPECTÉE'}
-          </div>
-        </td>
+        <td><div class="lbl">Gouvernorat</div><div class="val">${gouv}</div></td>
+        <td><div class="lbl">État dossier</div><div class="val">${etat}</div></td>
+        <td><div class="lbl">Usage véhicule</div><div class="val">${usage}</div></td>
       </tr>
     </table>
   </div>
 
-  <!-- COMMENTAIRE -->
+  <!-- 2. CHRONOLOGIE -->
   <div class="sec">
-    <div class="sec-title">Commentaire de l'Agent</div>
+    <div class="sec-title">2 — Chronologie</div>
+    <table class="grid">
+      <tr>
+        <td><div class="lbl">Date survenance</div><div class="val">${dateSurv}</div></td>
+        <td><div class="lbl">Date déclaration</div><div class="val">${dateDecl}</div></td>
+        <td><div class="lbl">Date décision</div><div class="val">${dateD}</div></td>
+      </tr>
+    </table>
+  </div>
+
+  <!-- 3. FINANCIER -->
+  <div class="sec">
+    <div class="sec-title">3 — Volet Financier</div>
+    <table class="grid">
+      <tr>
+        <td>
+          <div class="lbl">Montant évaluation</div>
+          <div class="val" style="font-size:11px;color:#CC2229">
+            ${montant > 0 ? montant.toLocaleString('fr-TN') + ' TND' : '—'}
+          </div>
+        </td>
+        <td><div class="lbl">Cumul règlement</div><div class="val">${cumul !== '—' ? cumul + ' TND' : '—'}</div></td>
+        <td><div class="lbl">Responsabilité</div><div class="val">${resp}</div></td>
+      </tr>
+      <tr>
+        <td><div class="lbl">Blessés</div><div class="val">${blesses}</div></td>
+        <td><div class="lbl">Décès</div><div class="val">${deces}</div></td>
+        <td><div class="lbl">Moyenne base BH</div><div class="val">3 736 TND</div></td>
+      </tr>
+    </table>
+  </div>
+
+  <!-- 4. SIGNAUX -->
+  <div class="sec">
+    <div class="sec-title">4 — Signaux d'Alerte</div>
+    ${flags
+      ? `<table class="flags"><tbody>${flags}</tbody></table>`
+      : `<div class="no-flag">✅ Aucun signal d'alerte critique détecté</div>`
+    }
+  </div>
+
+  <!-- 5. ANALYSE VERIAI -->
+  <div class="sec">
+    <div class="sec-title">5 — Analyse VeriAI</div>
+    <div class="explic">${explication}</div>
+  </div>
+
+  <!-- 6. DÉCISION + COMMENTAIRE -->
+  <div class="sec">
+    <div class="sec-title">6 — Décision & Commentaire de l'Agent</div>
     ${d.commentaire
       ? `<div class="comment-box">💬 ${d.commentaire}</div>`
       : `<div class="no-comment">Aucun commentaire saisi pour cette décision.</div>`
     }
   </div>
 
-  <!-- FOOTER + SIGNATURE -->
+  <!-- 7. RECOMMANDATION -->
+  <div class="sec">
+    <div class="sec-title">7 — Recommandation VeriAI</div>
+    <div class="reco">${recommandation}</div>
+  </div>
+
+  <!-- FOOTER -->
   <div class="ft">
     <div class="ft-l">
       <div><strong>BH ASSURANCE</strong></div>
       <div>Banque de l'Habitat Tunisie</div>
       <div>VeriAI — Système Anti-Fraude IA</div>
       <div style="color:#aaa;font-size:7.5px;letter-spacing:1px;margin-top:2px">
-        DOCUMENT CONFIDENTIEL — USAGE INTERNE UNIQUEMENT
+        DOCUMENT CONFIDENTIEL — USAGE INTERNE
       </div>
     </div>
     <div class="sig">
-      <div class="sig-lbl">Signature de l'agent</div>
+      <div class="sig-lbl">Visa de l'agent anti-fraude</div>
       <div class="sig-line"></div>
       <div class="sig-name">${agent}</div>
       <div class="sig-role">Agent Anti-Fraude — BH Assurance</div>
@@ -1577,24 +1755,111 @@ export class AgentEspaceComponent implements OnInit, OnDestroy, AfterViewChecked
     </div>
   </div>
 
-  <div class="wm">CONFIDENTIEL — BH GUARD — USAGE INTERNE UNIQUEMENT</div>
+  `; }
 
-</body>
-</html>`;
+    this.generatePDF(html, `Rapport-Decision-${d.num}-${new Date().toISOString().slice(0,10)}.pdf`);
+  }
 
-    const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
-    const url  = URL.createObjectURL(blob);
+  private stripMarkdown(text: string): string {
+    return (text || '—')
+      .replace(/\*\*(.+?)\*\*/g, '$1')
+      .replace(/\*(.+?)\*/g,     '$1')
+      .replace(/#{1,6}\s/g,      '')
+      .replace(/`(.+?)`/g,       '$1')
+      .replace(/\n/g,            ' ');
+  }
 
-    window.open(url, '_blank');
+  private async generatePDF(htmlContent: string, filename: string): Promise<void> {
+    const container = document.createElement('div');
+    container.style.cssText = `
+      position: fixed; top: -99999px; left: 0;
+      width: 794px; background: white;
+      font-family: Arial, sans-serif;
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
+      padding: 0; margin: 0;
+    `;
+    container.innerHTML = htmlContent;
+    document.body.appendChild(container);
 
-    const a    = document.createElement('a');
-    a.href     = url;
-    a.download = `Decision-${d.num}-${new Date().toISOString().slice(0,10)}.html`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
+    await new Promise(r => setTimeout(r, 1000));
 
-    setTimeout(() => URL.revokeObjectURL(url), 3000);
+    try {
+      const canvas = await html2canvas(container, {
+        scale           : 2,
+        useCORS         : true,
+        allowTaint      : true,
+        backgroundColor : '#ffffff',
+        width           : 794,
+        height          : container.scrollHeight,
+        windowWidth     : 794,
+        windowHeight    : container.scrollHeight,
+        scrollX         : 0,
+        scrollY         : 0,
+        logging         : false,
+        onclone         : (clonedDoc: Document) => {
+          const style = clonedDoc.createElement('style');
+          style.innerHTML = `
+            * { box-sizing: border-box !important; }
+            .lbl {
+              font-size: 7.5px !important; color: #888 !important;
+              text-transform: uppercase !important; letter-spacing: .4px !important;
+              margin-bottom: 2px !important; display: block !important;
+            }
+            .val {
+              font-size: 9.5px !important; font-weight: 700 !important;
+              color: #111 !important; display: block !important;
+            }
+            .sec-title {
+              font-size: 8px !important; font-weight: 700 !important;
+              text-transform: uppercase !important; letter-spacing: 1px !important;
+              color: #0047CC !important; padding: 3px 0 4px !important;
+              border-bottom: 1.5px solid #0047CC !important;
+              margin-bottom: 7px !important; display: block !important;
+            }
+            table.grid { width: 100% !important; border-collapse: collapse !important; }
+            table.grid td {
+              padding: 3px 8px 6px 0 !important;
+              vertical-align: top !important; width: 33.33% !important;
+            }
+          `;
+          clonedDoc.head.appendChild(style);
+        }
+      } as any);
+
+      const pdf  = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+      const pdfW = pdf.internal.pageSize.getWidth();
+      const pdfH = pdf.internal.pageSize.getHeight();
+      const totalImgH = (canvas.height * pdfW) / canvas.width;
+      const pageCount = Math.ceil(totalImgH / pdfH);
+
+      for (let i = 0; i < pageCount; i++) {
+        if (i > 0) pdf.addPage();
+
+        const srcY      = (i * pdfH * canvas.width) / pdfW;
+        const srcHeight = Math.min(
+          (pdfH * canvas.width) / pdfW,
+          canvas.height - srcY
+        );
+
+        const pageCanvas  = document.createElement('canvas');
+        pageCanvas.width  = canvas.width;
+        pageCanvas.height = Math.ceil(srcHeight);
+
+        const ctx = pageCanvas.getContext('2d')!;
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(0, 0, pageCanvas.width, pageCanvas.height);
+        ctx.drawImage(canvas, 0, srcY, canvas.width, srcHeight, 0, 0, canvas.width, srcHeight);
+
+        const pageImg = pageCanvas.toDataURL('image/jpeg', 1.0);
+        const pageH   = (srcHeight * pdfW) / canvas.width;
+        pdf.addImage(pageImg, 'JPEG', 0, 0, pdfW, pageH);
+      }
+
+      pdf.save(filename);
+    } finally {
+      document.body.removeChild(container);
+    }
   }
 
   ariaSubtitle(): string {

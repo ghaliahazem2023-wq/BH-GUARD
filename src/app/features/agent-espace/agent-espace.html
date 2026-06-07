@@ -128,7 +128,7 @@
                    [style.background]="sc(a.score)+'18'">{{ a.score }}%</div>
               <div class="bd-i">
                 <div class="bd-n">Sinistre {{ a.num }}</div>
-                <div class="bd-t">{{ a.time }}</div>
+                <div class="bd-t">{{ formatAlertTime(a.time) }}</div>
               </div>
               <span class="bd-dot" *ngIf="!a.lue"></span>
             </div>

@@ -5,7 +5,10 @@
   <aside class="sidebar" [class.collapsed]="!sidebarOpen">
     <div class="sidebar-logo">
       <img src="assets/logo-bh1.png" alt="BH Assurance" class="sidebar-logo-img"/>
-      <span class="logo-text">BH-GUARD</span>
+      <div class="logo-text">
+        <div><span class="logo-bh">BH</span><span class="logo-guard">-GUARD</span></div>
+        <small class="logo-sub">Administration</small>
+      </div>
     </div>
     <nav class="sidebar-nav">
       <button class="nav-item" [class.active]="activeTab==='dashboard'" (click)="setTab('dashboard')">
