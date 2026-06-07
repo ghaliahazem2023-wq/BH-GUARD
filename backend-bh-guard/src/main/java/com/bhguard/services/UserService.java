@@ -5,11 +5,14 @@ import com.bhguard.repositories.UserRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
+
 import java.util.List;
 import java.util.Optional;
 
 @Service
 public class UserService {
+
+    @Autowired private org.springframework.security.crypto.password.PasswordEncoder passwordEncoder;
 
     @Autowired
     private UserRepository userRepository;
@@ -30,6 +33,9 @@ public class UserService {
         if (user.getDateCreation() == null || user.getDateCreation().isBlank()) {
             user.setDateCreation(java.time.LocalDate.now().toString());
         }
+        if (user.getPassword() != null && !user.getPassword().isBlank()) {
+            user.setPassword(passwordEncoder.encode(user.getPassword()));
+        }
         return userRepository.save(user);
     }
 
@@ -42,7 +48,7 @@ public class UserService {
             user.setUsername(updatedUser.getUsername());
             user.setRole(updatedUser.getRole());
             if (updatedUser.getPassword() != null && !updatedUser.getPassword().isBlank()) {
-                user.setPassword(updatedUser.getPassword());
+                user.setPassword(passwordEncoder.encode(updatedUser.getPassword()));
             }
             return userRepository.save(user);
         }

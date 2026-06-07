@@ -1,5 +1,6 @@
 package com.bhguard.controllers;
 
+import com.bhguard.JwtUtil;
 import com.bhguard.models.User;
 import com.bhguard.services.LoginHistoryService;
 import com.bhguard.services.MailService;
@@ -20,6 +21,8 @@ public class AuthController {
     @Autowired private UserService userService;
     @Autowired private LoginHistoryService loginHistoryService;
     @Autowired private MailService mailService;
+    @Autowired private JwtUtil jwtUtil;
+    @Autowired private org.springframework.security.crypto.password.PasswordEncoder passwordEncoder;
 
     @PostMapping("/login")
     public ResponseEntity<Map<String, Object>> login(
@@ -28,7 +31,6 @@ public class AuthController {
 
         String username = body.get("username");
         String password = body.get("password");
-
         if (username == null || username.isBlank() || password == null || password.isBlank()) {
             Map<String, Object> error = new HashMap<>();
             error.put("message", "Nom d'utilisateur et mot de passe requis.");
@@ -49,7 +51,22 @@ public class AuthController {
 
         User user = userOpt.get();
 
-        if (!password.equals(user.getPassword())) {
+        // Détection auto : hash BCrypt ou mot de passe plain-text (migration transparente)
+        String stored = user.getPassword();
+        boolean passwordOk;
+        if (stored != null && (stored.startsWith("$2a$") || stored.startsWith("$2b$") || stored.startsWith("$2y$"))) {
+            passwordOk = passwordEncoder.matches(password, stored);
+        } else {
+            // Plain-text legacy → compare puis upgrade automatique
+            passwordOk = password.equals(stored);
+            if (passwordOk) {
+                user.setPassword(passwordEncoder.encode(password));
+                userService.save(user);
+                System.out.println("[BHGuard] Mot de passe migré vers BCrypt pour : " + user.getUsername());
+            }
+        }
+
+        if (!passwordOk) {
             loginHistoryService.record(user.getUsername(), "ÉCHEC", clientIp);
             Map<String, Object> error = new HashMap<>();
             error.put("message", "Identifiants invalides.");
@@ -65,11 +82,13 @@ public class AuthController {
 
         loginHistoryService.record(user.getUsername(), "SUCCÈS", clientIp);
 
-        Map<String, Object> success = new HashMap<>();
-        success.put("username", user.getUsername());
-        success.put("role",     user.getRole());
-        success.put("nom",      user.getNom());
-        success.put("prenom",   user.getPrenom());
+        String token = jwtUtil.generateToken(user.getUsername(), user.getRole());
+Map<String, Object> success = new HashMap<>();
+success.put("token",    token);
+success.put("username", user.getUsername());
+success.put("role",     user.getRole());
+success.put("nom",      user.getNom());
+success.put("prenom",   user.getPrenom());
         return ResponseEntity.ok(success);
     }
 
@@ -86,7 +105,7 @@ public class AuthController {
         if (userOpt.isPresent()) {
             User user = userOpt.get();
             if (user.getRole().trim().equalsIgnoreCase(fonction)) {
-                user.setPassword(newPassword);
+                user.setPassword(passwordEncoder.encode(newPassword));
                 userService.save(user);
                 response.put("message", "Mot de passe mis à jour !");
                 return ResponseEntity.ok(response);
@@ -95,6 +114,9 @@ public class AuthController {
         response.put("message", "Username ou Fonction incorrecte.");
         return ResponseEntity.status(401).body(response);
     }
+
+
+   
 
     @PostMapping("/forgot-password")
     public ResponseEntity<Map<String, Object>> forgotPassword(
@@ -111,4 +133,13 @@ public class AuthController {
             return ResponseEntity.status(500).body(response);
         }
     }
+
+    @GetMapping("/hash/{pwd}")
+    public String hash(@PathVariable String pwd) {
+        return passwordEncoder.encode(pwd);
+    }
+
+
+
+    
 }

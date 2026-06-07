@@ -260,10 +260,10 @@ public class SinistreController {
             long t0      = System.currentTimeMillis();
             int  traites = jdbcSinistre.update(sqlHeuristique);
 
-            // 3. Calculer SCORE_GLOBAL = (2×SCORE_HEURISTIQUE + 1×SCORE_RISQUE) / 3
+            // 3. SCORE_GLOBAL = (2×SCORE_HEURISTIQUE + SCORE_RISQUE) / 3 pour tous
             String sqlGlobal =
                 "UPDATE sinistres " +
-                "SET SCORE_GLOBAL = ROUND((2.0 * SCORE_HEURISTIQUE + 1.0 * ISNULL(SCORE_RISQUE,SCORE_HEURISTIQUE)) / 3.0, 0) " +
+                "SET SCORE_GLOBAL = ROUND((2.0 * SCORE_HEURISTIQUE + 1.0 * ISNULL(SCORE_RISQUE, SCORE_HEURISTIQUE)) / 3.0, 0) " +
                 "WHERE SCORE_HEURISTIQUE IS NOT NULL";
 
             jdbcSinistre.update(sqlGlobal);
@@ -275,10 +275,10 @@ public class SinistreController {
             Map<String, Object> recap = jdbcSinistre.queryForMap(
                 "SELECT " +
                 "  COUNT(*) AS total, " +
-                "  SUM(CASE WHEN SCORE_GLOBAL >= 75 THEN 1 ELSE 0 END) AS critiques, " +
-                "  SUM(CASE WHEN SCORE_GLOBAL >= 40 AND SCORE_GLOBAL < 75 THEN 1 ELSE 0 END) AS moderes, " +
-                "  SUM(CASE WHEN SCORE_GLOBAL < 40 THEN 1 ELSE 0 END) AS conformes " +
-                "FROM sinistres WHERE SCORE_GLOBAL IS NOT NULL"
+                "  SUM(CASE WHEN ISNULL(SCORE_GLOBAL,0) >= 75 THEN 1 ELSE 0 END) AS critiques, " +
+                "  SUM(CASE WHEN ISNULL(SCORE_GLOBAL,0) >= 40 AND ISNULL(SCORE_GLOBAL,0) < 75 THEN 1 ELSE 0 END) AS moderes, " +
+                "  SUM(CASE WHEN ISNULL(SCORE_GLOBAL,0) < 40 THEN 1 ELSE 0 END) AS conformes " +
+                "FROM sinistres WHERE SCORE_HEURISTIQUE IS NOT NULL"
             );
 
             Map<String, Object> response = new LinkedHashMap<>();
@@ -509,8 +509,18 @@ public class SinistreController {
             if (rawBody != null && rawBody.get("score_risque") instanceof Number)
                 scoreFastApi = ((Number) rawBody.get("score_risque")).intValue();
 
-            // Score heuristique Java
-            int scoreFormule = sinistre != null ? scoreHeuristique(sinistre) : scoreBase;
+            // Lire SCORE_HEURISTIQUE depuis DB (calculé par le batch) — évite divergence avec recalcul Java
+            int scoreFormule = 0;
+            try {
+                JdbcTemplate jdbcSin = new JdbcTemplate(sinistreDataSource);
+                Double heur = jdbcSin.queryForObject(
+                    "SELECT ISNULL(SCORE_HEURISTIQUE, 0) FROM sinistres WHERE LTRIM(RTRIM(NUM_SINISTRE)) = ?",
+                    Double.class, numSinistre.trim());
+                scoreFormule = (heur != null && heur > 0) ? heur.intValue() : 0;
+            } catch (Exception ex) {
+                System.err.println("[BHGuard] SCORE_HEURISTIQUE lecture DB: " + ex.getMessage());
+            }
+            if (scoreFormule <= 0) scoreFormule = sinistre != null ? scoreHeuristique(sinistre) : scoreBase;
             if (scoreFormule <= 0) scoreFormule = scoreBase;
 
             // Score ML FastAPI
@@ -548,8 +558,23 @@ public class SinistreController {
             body.put("est_suspect",   scoreGlobal >= 65);
             body.put("num_sinistre",  numSinistre);
 
-            // Sauvegarder SCORE_HEURISTIQUE + SCORE_GLOBAL en base
+            // Sauvegarder SCORE_HEURISTIQUE + SCORE_RISQUE + SCORE_GLOBAL en base
             sauvegarderScores(numSinistre, scoreFormule, scoreML, scoreGlobal);
+
+            // Relire SCORE_GLOBAL depuis DB — garantit que fiche = liste
+            try {
+                JdbcTemplate jdbcVerif = new JdbcTemplate(sinistreDataSource);
+                Double dbGlobal = jdbcVerif.queryForObject(
+                    "SELECT ISNULL(SCORE_GLOBAL,0) FROM sinistres WHERE LTRIM(RTRIM(NUM_SINISTRE))=?",
+                    Double.class, numSinistre.trim());
+                if (dbGlobal != null && dbGlobal > 0) {
+                    int finalScore = dbGlobal.intValue();
+                    body.put("score_risque",  finalScore);
+                    body.put("niveau_risque", sinistreService.calculerNiveau(finalScore));
+                    body.put("est_suspect",   finalScore >= 65);
+                    System.out.println("[BHGuard] score_risque DB confirmé: " + finalScore);
+                }
+            } catch (Exception ignored) {}
 
             return ResponseEntity.ok(body);
 
@@ -570,32 +595,35 @@ public class SinistreController {
     }
 
     private void sauvegarderScores(String numSinistre, int scoreHeuristique, int scoreML, int scoreGlobal) {
+        System.out.println("[BHGuard] sauvegarderScores AVANT: num=" + numSinistre
+            + " heuristique=" + scoreHeuristique
+            + " global=" + scoreGlobal);
         JdbcTemplate jdbc = new JdbcTemplate(sinistreDataSource);
         try {
-            // Tentative complète : SCORE_HEURISTIQUE + SCORE_GLOBAL
+            // Sauvegarder les 3 colonnes : SCORE_HEURISTIQUE + SCORE_RISQUE (ML) + SCORE_GLOBAL
             int updated = jdbc.update(
-                "UPDATE sinistres SET SCORE_HEURISTIQUE = ?, SCORE_GLOBAL = ? " +
+                "UPDATE sinistres SET SCORE_HEURISTIQUE = ?, SCORE_RISQUE = ?, SCORE_GLOBAL = ? " +
                 "WHERE LTRIM(RTRIM(NUM_SINISTRE)) = ?",
-                (double) scoreHeuristique, (double) scoreGlobal, numSinistre.trim());
+                (double) scoreHeuristique, (double) scoreML, (double) scoreGlobal, numSinistre.trim());
             if (updated == 0)
                 jdbc.update(
-                    "UPDATE sinistres SET SCORE_HEURISTIQUE = ?, SCORE_GLOBAL = ? WHERE NUM_SINISTRE = ?",
-                    (double) scoreHeuristique, (double) scoreGlobal, numSinistre);
+                    "UPDATE sinistres SET SCORE_HEURISTIQUE = ?, SCORE_RISQUE = ?, SCORE_GLOBAL = ? WHERE NUM_SINISTRE = ?",
+                    (double) scoreHeuristique, (double) scoreML, (double) scoreGlobal, numSinistre);
             System.out.println("[BHGuard] sauvegarderScores: " + numSinistre
-                + " heuristique=" + scoreHeuristique + " global=" + scoreGlobal);
+                + " heuristique=" + scoreHeuristique + " ML=" + scoreML + " global=" + scoreGlobal);
         } catch (Exception ex1) {
-            // SCORE_HEURISTIQUE absent → fallback : SCORE_GLOBAL seulement
-            System.err.println("[BHGuard] sauvegarderScores fallback (SCORE_GLOBAL only): " + ex1.getMessage());
+            // SCORE_HEURISTIQUE absent → fallback : SCORE_RISQUE + SCORE_GLOBAL
+            System.err.println("[BHGuard] sauvegarderScores fallback: " + ex1.getMessage());
             try {
                 int updated = jdbc.update(
-                    "UPDATE sinistres SET SCORE_GLOBAL = ? " +
+                    "UPDATE sinistres SET SCORE_RISQUE = ?, SCORE_GLOBAL = ? " +
                     "WHERE LTRIM(RTRIM(NUM_SINISTRE)) = ?",
-                    (double) scoreGlobal, numSinistre.trim());
+                    (double) scoreML, (double) scoreGlobal, numSinistre.trim());
                 if (updated == 0)
                     jdbc.update(
-                        "UPDATE sinistres SET SCORE_GLOBAL = ? WHERE NUM_SINISTRE = ?",
-                        (double) scoreGlobal, numSinistre);
-                System.out.println("[BHGuard] sauvegarderScores fallback OK: " + numSinistre + " global=" + scoreGlobal);
+                        "UPDATE sinistres SET SCORE_RISQUE = ?, SCORE_GLOBAL = ? WHERE NUM_SINISTRE = ?",
+                        (double) scoreML, (double) scoreGlobal, numSinistre);
+                System.out.println("[BHGuard] sauvegarderScores fallback OK: " + numSinistre + " ML=" + scoreML + " global=" + scoreGlobal);
             } catch (Exception ex2) {
                 System.err.println("[BHGuard] sauvegarderScores ERREUR totale: " + ex2.getMessage());
             }

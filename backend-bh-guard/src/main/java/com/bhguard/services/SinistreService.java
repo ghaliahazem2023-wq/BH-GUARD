@@ -122,12 +122,14 @@ public class SinistreService {
         }
 
         String orderBy = hasScoreCol
-            ? " ORDER BY ISNULL(SCORE_GLOBAL, ISNULL(SCORE_RISQUE, 0)) DESC, NUM_SINISTRE DESC "
+            ? " ORDER BY ISNULL(SCORE_GLOBAL, ISNULL(SCORE_HEURISTIQUE, ISNULL(SCORE_RISQUE,0))) DESC, NUM_SINISTRE DESC "
             : " ORDER BY NUM_SINISTRE DESC ";
 
         String scoreSelect = hasScoreCol
-            ? ", SCORE_RISQUE, ISNULL(SCORE_GLOBAL, SCORE_RISQUE) AS scoreGlobal "
-            : ", NULL AS SCORE_RISQUE, NULL AS scoreGlobal ";
+            ? ", ISNULL(SCORE_RISQUE,0) AS SCORE_RISQUE, " +
+              "  ISNULL(SCORE_HEURISTIQUE,0) AS SCORE_HEURISTIQUE, " +
+              "  ISNULL(SCORE_GLOBAL, ISNULL(SCORE_HEURISTIQUE, ISNULL(SCORE_RISQUE,0))) AS scoreGlobal "
+            : ", NULL AS SCORE_RISQUE, NULL AS SCORE_HEURISTIQUE, NULL AS scoreGlobal ";
 
         String countSql = "SELECT COUNT_BIG(*) FROM sinistres WHERE " + whereStr;
         String dataSql  =
@@ -181,12 +183,27 @@ public class SinistreService {
             dto.put("dateDeclaration",    rowStr(row, "DATE_DECLARATION"));
             dto.put("cumulReglement",     rowNum(row, "cumul_reglement"));
 
-            // Score effectif : ML persisté en BD si dispo, sinon heuristique Java
-            double dbScore = rowNum(row, "SCORE_RISQUE");
-            boolean estimated;
+            // Score composite : même formule que la fiche d'analyse
+            double dbScoreGlobal = row.get("scoreGlobal") instanceof Number
+                    ? ((Number) row.get("scoreGlobal")).doubleValue() : 0;
+            double dbScoreML   = rowNum(row, "SCORE_RISQUE");
+            double dbScoreHeur = rowNum(row, "SCORE_HEURISTIQUE");
+
             double effectiveScore;
-            if (dbScore > 0) {
-                effectiveScore = dbScore;
+            boolean estimated;
+            if (dbScoreGlobal > 0) {
+                // SCORE_GLOBAL déjà calculé (batch ou analyse individuelle)
+                effectiveScore = dbScoreGlobal;
+                estimated = false;
+            } else if (dbScoreHeur > 0 && dbScoreML > 0) {
+                // Calcul composite à la volée : même formule que la fiche
+                effectiveScore = Math.min(100, Math.round((2.0 * dbScoreHeur + dbScoreML) / 3.0));
+                estimated = false;
+            } else if (dbScoreHeur > 0) {
+                effectiveScore = dbScoreHeur;
+                estimated = false;
+            } else if (dbScoreML > 0) {
+                effectiveScore = dbScoreML;
                 estimated = false;
             } else {
                 effectiveScore = calculerScore(
@@ -199,11 +216,13 @@ public class SinistreService {
                 );
                 estimated = true;
             }
-            dto.put("scoreRisque",  effectiveScore);
-            dto.put("scoreEstime",  estimated);
-            dto.put("niveauRisque", calculerNiveau((int) effectiveScore));
-            dto.put("estSuspect",   effectiveScore >= 65);
-            dto.put("scoreGlobal",  row.get("scoreGlobal"));
+            dto.put("scoreRisque",      effectiveScore);
+            dto.put("scoreEstime",      estimated);
+            dto.put("niveauRisque",     calculerNiveau((int) effectiveScore));
+            dto.put("estSuspect",       effectiveScore >= 65);
+            dto.put("scoreGlobal",      effectiveScore);
+            dto.put("scoreHeuristique", dbScoreHeur);
+            dto.put("scoreML",          dbScoreML);
             return dto;
         }).collect(Collectors.toList());
 

@@ -7,7 +7,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 from typing import Optional, List, Dict, Any
 
-from database import get_sinistre_by_num
+from database import get_sinistre_by_num, get_all_stats
 from model import FraudModel
 
 # ─────────────────────────── App & CORS ─────────────────────────────────────
@@ -68,6 +68,15 @@ def health():
         "model_loaded": fraud_model.is_ready,
         "service"     : "BH Guard Fraud Detection API",
     }
+
+
+@app.get("/dashboard-stats")
+def dashboard_stats():
+    """Retourne les stats globales pour VeriAI assistant général."""
+    try:
+        return get_all_stats()
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc))
 
 
 @app.post("/predict")
