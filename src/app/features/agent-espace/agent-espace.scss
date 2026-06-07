@@ -1,4 +1,4 @@
-    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap');
+﻿    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap');
     :host{display:block;height:100vh;font-family:'Inter',sans-serif;
       --blue:#CC2229;
       --blt:#FFF0F0;
@@ -384,10 +384,10 @@
     .hl-txt{flex:1;line-height:1.5;}
 
     /* FAB */
-    .fab{position:fixed;bottom:28px;right:28px;width:56px;height:56px;border-radius:50%;
-      background:linear-gradient(135deg,#CC2229,#1B2B5E);border:none;cursor:pointer;
+    .fab{position:fixed;bottom:28px;right:28px;width:58px;height:58px;border-radius:50%;
+      background:linear-gradient(135deg,#001a6e,#000d3d);border:none;cursor:pointer;
       color:white;display:flex;align-items:center;justify-content:center;
-      box-shadow:0 4px 20px rgba(204,34,41,.4);z-index:200;transition:transform .2s,box-shadow .2s;}
+      box-shadow:0 4px 20px rgba(0,71,204,0.5);z-index:200;transition:transform .2s,box-shadow .2s;}
     .fab:hover{transform:scale(1.08);box-shadow:0 6px 28px rgba(204,34,41,.5);}
     .fab.fab-on{background:linear-gradient(135deg,#475569,#334155);}
     .fab-pulse{position:absolute;top:4px;right:4px;width:12px;height:12px;border-radius:50%;
@@ -403,9 +403,10 @@
     .mhd{display:flex;justify-content:space-between;align-items:center;padding:16px 20px;
       border-bottom:1px solid var(--g100);background:white;}
     .mhd-l{display:flex;align-items:center;gap:12px;}
-    .mhd-av{width:38px;height:38px;border-radius:50%;
-      background:linear-gradient(135deg,#CC2229,#1B2B5E);
-      display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+    .mhd-av{width:46px;height:46px;border-radius:50%;
+      background:linear-gradient(135deg,#001a6e,#000d3d);
+      display:flex;align-items:center;justify-content:center;flex-shrink:0;
+      box-shadow:0 0 16px rgba(0,71,204,0.5);}
     .mhd-name{font-size:.95rem;font-weight:800;color:var(--g900);}
     .mhd-sub{font-size:.72rem;color:var(--g400);display:flex;align-items:center;gap:5px;margin-top:1px;}
     .mhd-dot{width:6px;height:6px;border-radius:50%;background:var(--grn);flex-shrink:0;animation:pulse 2s infinite;}
@@ -595,3 +596,119 @@
     .sd-formule{font-size:.62rem;color:var(--g400);font-style:italic;
       text-align:center;padding-top:6px;border-top:1px solid var(--g200);
       font-family:'JetBrains Mono',monospace;}
+
+/* ══ VERIAI PAGE ══════════════════════════════════════════════════════ */
+.veriai-page { padding: 0; height: calc(100vh - 72px); overflow: hidden; }
+.veriai-layout { display: grid; grid-template-columns: 320px 1fr; height: 100%; gap: 0; }
+.veriai-left {
+  background: linear-gradient(160deg, #001a6e 0%, #000d3d 60%, #000820 100%);
+  display: flex; flex-direction: column; align-items: center;
+  padding: 32px 20px 24px;
+  border-right: 1px solid rgba(74,144,217,0.15);
+  overflow-y: auto;
+}
+.vai-mascot-wrap { display: flex; flex-direction: column; align-items: center; gap: 10px; }
+.vai-svg { animation: vaiFloat 3s ease-in-out infinite; }
+@keyframes vaiFloat {
+  0%, 100% { transform: translateY(0px); }
+  50%       { transform: translateY(-10px); }
+}
+.vai-name {
+  font-size: 28px; font-weight: 800;
+  background: linear-gradient(135deg, #4A90D9, #fff, #ED1C24);
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  letter-spacing: 3px;
+}
+.vai-sub { color: rgba(255,255,255,0.45); font-size: 11px; letter-spacing: 2px; text-transform: uppercase; }
+.vai-status {
+  display: flex; align-items: center; gap: 6px;
+  background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 20px; padding: 4px 12px;
+  color: rgba(255,255,255,0.6); font-size: 11px; letter-spacing: 2px; margin-top: 4px;
+}
+.vai-dot {
+  width: 7px; height: 7px; border-radius: 50%;
+  background: #22c55e; box-shadow: 0 0 8px #22c55e;
+  animation: pulseDot 1.5s ease-in-out infinite; display: inline-block;
+}
+@keyframes pulseDot {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50%       { opacity: 0.5; transform: scale(0.7); }
+}
+.vai-quick { margin-top: 24px; width: 100%; }
+.vai-quick-title {
+  color: rgba(255,255,255,0.3); font-size: 10px; letter-spacing: 2px;
+  text-transform: uppercase; margin-bottom: 10px; text-align: center;
+}
+.vai-sug {
+  width: 100%; background: rgba(255,255,255,0.05);
+  border: 1px solid rgba(74,144,217,0.2); border-radius: 10px;
+  color: rgba(255,255,255,0.7); font-size: 12px; padding: 10px 14px;
+  text-align: left; cursor: pointer; margin-bottom: 8px; transition: all 0.2s;
+}
+.vai-sug:hover {
+  background: rgba(74,144,217,0.15); border-color: rgba(74,144,217,0.5);
+  color: #fff; transform: translateX(4px);
+}
+.veriai-right { display: flex; flex-direction: column; background: #f8fafc; overflow: hidden; }
+.vai-chat { display: flex; flex-direction: column; height: 100%; }
+.vai-chat-hd {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 16px 24px; background: #fff; border-bottom: 1px solid #e2e8f0; flex-shrink: 0;
+}
+.vai-chat-hd-l { display: flex; align-items: center; gap: 12px; }
+.vai-chat-av {
+  width: 38px; height: 38px; border-radius: 50%;
+  background: linear-gradient(135deg, #0047CC, #001450);
+  display: flex; align-items: center; justify-content: center;
+  box-shadow: 0 0 12px rgba(0,71,204,0.4);
+}
+.vai-chat-name { font-weight: 700; font-size: 15px; color: #1e293b; }
+.vai-chat-sub { display: flex; align-items: center; gap: 5px; font-size: 11px; color: #64748b; }
+.vai-clear {
+  display: flex; align-items: center; gap: 5px;
+  background: none; border: 1px solid #e2e8f0; border-radius: 8px;
+  padding: 6px 12px; color: #94a3b8; font-size: 12px; cursor: pointer; transition: all 0.2s;
+}
+.vai-clear:hover { border-color: #dc2626; color: #dc2626; }
+.vai-msgs { flex: 1; overflow-y: auto; padding: 24px; display: flex; flex-direction: column; gap: 16px; }
+.vai-msg { display: flex; align-items: flex-end; gap: 8px; }
+.vai-msg-bot  { justify-content: flex-start; }
+.vai-msg-user { justify-content: flex-end; }
+.vai-msg-av {
+  width: 36px; height: 36px; border-radius: 50%;
+  background: linear-gradient(135deg, #001a6e, #000d3d);
+  display: flex; align-items: center; justify-content: center;
+  box-shadow: 0 0 10px rgba(0,71,204,0.4);
+  flex-shrink: 0; box-shadow: 0 0 10px rgba(0,71,204,0.3);
+}
+.vai-uav {
+  width: 30px; height: 30px; border-radius: 50%;
+  background: linear-gradient(135deg, #1B2B5E, #CC2229);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 10px; font-weight: 700; color: #fff; flex-shrink: 0;
+}
+.vai-bbl { max-width: 65%; padding: 12px 16px; border-radius: 16px; font-size: 13.5px; line-height: 1.6; position: relative; }
+.vai-bbl-bot {
+  background: #fff; color: #1e293b; border-radius: 4px 16px 16px 16px;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.07); border: 1px solid #e2e8f0;
+}
+.vai-bbl-user { background: linear-gradient(135deg, #0047CC, #001f6b); color: #fff; border-radius: 16px 4px 16px 16px; }
+.vai-time { display: block; font-size: 10px; opacity: 0.5; margin-top: 6px; }
+.vai-inp-wrap { padding: 16px 24px 12px; background: #fff; border-top: 1px solid #e2e8f0; flex-shrink: 0; }
+.vai-inp-box {
+  display: flex; align-items: center; gap: 10px;
+  background: #f1f5f9; border: 1.5px solid #e2e8f0; border-radius: 14px;
+  padding: 10px 14px; transition: border-color 0.2s;
+}
+.vai-inp-box:focus-within { border-color: #0047CC; background: #fff; }
+.vai-ta { flex: 1; background: none; border: none; outline: none; font-size: 13.5px; color: #1e293b; resize: none; font-family: inherit; line-height: 1.5; }
+.vai-send {
+  width: 34px; height: 34px; border-radius: 10px;
+  background: linear-gradient(135deg, #0047CC, #001f6b);
+  border: none; cursor: pointer; display: flex; align-items: center; justify-content: center;
+  transition: all 0.2s; flex-shrink: 0;
+}
+.vai-send:hover:not(:disabled) { transform: scale(1.08); box-shadow: 0 4px 12px rgba(0,71,204,0.4); }
+.vai-send:disabled { opacity: 0.4; cursor: not-allowed; }
+.vai-hint { font-size: 10px; color: #94a3b8; margin-top: 6px; text-align: center; letter-spacing: 0.5px; }

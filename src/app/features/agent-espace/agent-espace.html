@@ -62,6 +62,20 @@
         <span class="nl" *ngIf="!mini">Historique</span>
         <span class="nb-count" *ngIf="!mini && decisions.length>0">{{ decisions.length }}</span>
       </button>
+      <button class="nb" [class.act]="tab==='veriai'" (click)="tab='veriai'">
+        <span class="ni">
+          <svg width="18" height="18" viewBox="0 0 44 44" fill="none">
+            <rect x="8" y="12" width="28" height="22" rx="9" fill="currentColor" opacity="0.15"/>
+            <rect x="8" y="12" width="28" height="22" rx="9" stroke="currentColor" stroke-width="1.5" fill="none"/>
+            <circle cx="17" cy="22" r="3.5" fill="currentColor"/>
+            <circle cx="27" cy="22" r="3.5" fill="currentColor"/>
+            <path d="M17 28 Q22 32 27 28" stroke="currentColor" stroke-width="1.5" fill="none" stroke-linecap="round"/>
+            <line x1="22" y1="12" x2="22" y2="7" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+            <circle cx="22" cy="6" r="2.5" fill="#ED1C24"/>
+          </svg>
+        </span>
+        <span class="nl" *ngIf="!mini">VeriAI</span>
+      </button>
     </nav>
 
     <div class="sb-api" *ngIf="!mini">
@@ -698,6 +712,13 @@
               </svg>
               Discuter avec VeriAI
             </button>
+            <button class="btn-outline" (click)="downloadAuditPDF()" *ngIf="resultat">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+                <path d="M12 15l-4-4h3V4h2v7h3l-4 4z" fill="currentColor"/>
+                <path d="M20 18H4v2h16v-2z" fill="currentColor"/>
+              </svg>
+              Rapport PDF
+            </button>
             <button class="btn-outline" (click)="resultat=null;numInput='';decisionPrise=null">↺ Nouvelle analyse</button>
           </div>
         </div>
@@ -868,7 +889,7 @@
           <thead>
             <tr>
               <th>#</th><th>Date & Heure</th><th>Agent</th>
-              <th>N° Sinistre</th><th>Score</th><th>Statut final</th><th>Commentaire</th>
+              <th>N° Sinistre</th><th>Score</th><th>Statut final</th><th>Commentaire</th><th>Rapport</th>
             </tr>
           </thead>
           <tbody>
@@ -892,7 +913,19 @@
                   {{ d.statut==='CONFORME'?'Dossier Conforme':'Fraude Suspectée' }}
                 </span>
               </td>
-              <td style="font-size:.72rem;color:var(--g500);max-width:180px;overflow:hidden;text-overflow:ellipsis">{{ d.commentaire || '—' }}</td>
+              <td style="font-size:.72rem;color:var(--g500);max-width:180px;overflow:hidden;text-overflow:ellipsis">
+                {{ d.commentaire || '—' }}
+              </td>
+              <td>
+                <button class="btn-tbl" (click)="downloadDecisionPDF(d)" title="Télécharger rapport">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" stroke="currentColor" stroke-width="2"/>
+                    <polyline points="7,10 12,15 17,10" stroke="currentColor" stroke-width="2"/>
+                    <line x1="12" y1="15" x2="12" y2="3" stroke="currentColor" stroke-width="2"/>
+                  </svg>
+                  PDF
+                </button>
+              </td>
             </tr>
           </tbody>
         </table>
@@ -920,14 +953,364 @@
       </div>
     </section>
 
+    <!-- ══ VERIAI ══════════════════════════════════════════════════════════ -->
+    <section class="page veriai-page" *ngIf="tab==='veriai'">
+      <div class="veriai-layout">
+
+        <!-- MASCOT LEFT -->
+        <div class="veriai-left">
+          <div class="vai-mascot-wrap">
+            <svg width="220" height="280" viewBox="0 0 220 280" fill="none"
+                 [style.transform]="'translateY(' + mascotFloat + 'px)'"
+                 style="transition:filter 0.3s;filter:drop-shadow(0 8px 24px rgba(0,71,204,0.35))">
+              <defs>
+                <linearGradient id="mBodyGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                  <stop offset="0%" stop-color="#1a5ce6"/>
+                  <stop offset="50%" stop-color="#002B80"/>
+                  <stop offset="100%" stop-color="#001450"/>
+                </linearGradient>
+                <linearGradient id="mHeadGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                  <stop offset="0%" stop-color="#2266e8"/>
+                  <stop offset="40%" stop-color="#0047CC"/>
+                  <stop offset="100%" stop-color="#001f6b"/>
+                </linearGradient>
+                <linearGradient id="mScreenGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+                  <stop offset="0%" stop-color="#0a1a4d"/>
+                  <stop offset="100%" stop-color="#000d2e"/>
+                </linearGradient>
+                <linearGradient id="mHL" x1="0%" y1="0%" x2="60%" y2="100%">
+                  <stop offset="0%" stop-color="white" stop-opacity="0.22"/>
+                  <stop offset="100%" stop-color="white" stop-opacity="0"/>
+                </linearGradient>
+              </defs>
+
+              <!-- Shadow -->
+              <ellipse cx="110" cy="272" [attr.rx]="mascotFloat > 0 ? 48 : 54" ry="7"
+                       fill="rgba(0,0,0,0.18)" style="transition:rx 0.5s ease"/>
+
+              <!-- Legs -->
+              <rect x="72"  y="220" width="26" height="42" rx="13" fill="url(#mBodyGrad)"/>
+              <rect x="66"  y="252" width="36" height="14" rx="7"  fill="#001450"/>
+              <rect x="122" y="220" width="26" height="42" rx="13" fill="url(#mBodyGrad)"/>
+              <rect x="118" y="252" width="36" height="14" rx="7"  fill="#001450"/>
+
+              <!-- Body -->
+              <rect x="58" y="148" width="104" height="82" rx="22" fill="url(#mBodyGrad)"/>
+              <rect x="58" y="148" width="104" height="82" rx="22" fill="url(#mHL)"/>
+              <rect x="58" y="148" width="104" height="82" rx="22" stroke="rgba(74,144,217,0.4)" stroke-width="1.5" fill="none"/>
+
+              <!-- Chest screen -->
+              <rect x="74" y="160" width="72" height="50" rx="10" fill="url(#mScreenGrad)"/>
+              <rect x="74" y="160" width="72" height="50" rx="10" stroke="rgba(74,144,217,0.5)" stroke-width="1" fill="none"/>
+
+              <!-- Screen: talking waveform -->
+              <ng-container *ngIf="vaiTyping">
+                <rect x="82"  [attr.y]="185 - mascotWaveH[0]/2" width="5" [attr.height]="mascotWaveH[0]" rx="2" fill="#4A90D9"  style="transition:height 0.18s,y 0.18s"/>
+                <rect x="92"  [attr.y]="185 - mascotWaveH[1]/2" width="5" [attr.height]="mascotWaveH[1]" rx="2" fill="#ED1C24"  style="transition:height 0.18s,y 0.18s"/>
+                <rect x="102" [attr.y]="185 - mascotWaveH[2]/2" width="5" [attr.height]="mascotWaveH[2]" rx="2" fill="#60aaff"  style="transition:height 0.18s,y 0.18s"/>
+                <rect x="112" [attr.y]="185 - mascotWaveH[3]/2" width="5" [attr.height]="mascotWaveH[3]" rx="2" fill="#4A90D9"  style="transition:height 0.18s,y 0.18s"/>
+                <rect x="122" [attr.y]="185 - mascotWaveH[4]/2" width="5" [attr.height]="mascotWaveH[4]" rx="2" fill="#ED1C24"  style="transition:height 0.18s,y 0.18s"/>
+                <rect x="132" [attr.y]="185 - mascotWaveH[5]/2" width="5" [attr.height]="mascotWaveH[5]" rx="2" fill="#60aaff"  style="transition:height 0.18s,y 0.18s"/>
+              </ng-container>
+
+              <!-- Screen: idle heartbeat -->
+              <ng-container *ngIf="!vaiTyping">
+                <polyline points="78,185 88,185 93,172 98,198 103,178 108,185 130,185 135,175 140,195 145,185"
+                          stroke="#4A90D9" stroke-width="2" fill="none" stroke-linecap="round"/>
+                <rect x="82" y="198" width="56" height="3" rx="1.5" fill="rgba(74,144,217,0.2)"/>
+                <rect x="82" y="198" [attr.width]="mascotScanW" height="3" rx="1.5"
+                      fill="rgba(74,144,217,0.8)" style="transition:width 0.6s ease"/>
+              </ng-container>
+
+              <!-- BH Badge -->
+              <circle cx="110" cy="224" r="9" fill="#ED1C24"/>
+              <text x="110" y="228" text-anchor="middle" font-size="7" font-weight="bold" fill="white" font-family="Arial">BH</text>
+
+              <!-- Left arm -->
+              <rect x="30" y="152" width="32" height="22" rx="11" fill="url(#mBodyGrad)"
+                    [attr.transform]="mascotWaving ? 'rotate(-25,46,163)' : 'rotate(0,46,163)'"
+                    style="transition:transform 0.4s ease"/>
+              <circle cx="32" cy="163" r="11" fill="#001450"
+                      [attr.transform]="mascotWaving ? 'rotate(-25,46,163)' : 'rotate(0,46,163)'"
+                      style="transition:transform 0.4s ease"/>
+              <circle cx="32" cy="163" r="7" fill="#0047CC"
+                      [attr.transform]="mascotWaving ? 'rotate(-25,46,163)' : 'rotate(0,46,163)'"
+                      style="transition:transform 0.4s ease"/>
+
+              <!-- Right arm -->
+              <rect x="158" y="152" width="32" height="22" rx="11" fill="url(#mBodyGrad)"
+                    [attr.transform]="mascotExcited ? 'rotate(25,174,163)' : 'rotate(0,174,163)'"
+                    style="transition:transform 0.4s ease"/>
+              <circle cx="188" cy="163" r="11" fill="#001450"
+                      [attr.transform]="mascotExcited ? 'rotate(25,174,163)' : 'rotate(0,174,163)'"
+                      style="transition:transform 0.4s ease"/>
+              <circle cx="188" cy="163" r="7" fill="#0047CC"
+                      [attr.transform]="mascotExcited ? 'rotate(25,174,163)' : 'rotate(0,174,163)'"
+                      style="transition:transform 0.4s ease"/>
+
+              <!-- Neck -->
+              <rect x="97"  y="136" width="26" height="18" rx="8"   fill="#001450"/>
+              <rect x="101" y="138" width="18" height="3"  rx="1.5" fill="rgba(74,144,217,0.3)"/>
+              <rect x="101" y="143" width="18" height="3"  rx="1.5" fill="rgba(74,144,217,0.3)"/>
+              <rect x="101" y="148" width="18" height="3"  rx="1.5" fill="rgba(74,144,217,0.3)"/>
+
+              <!-- Head -->
+              <rect x="52" y="60" width="116" height="84" rx="28" fill="url(#mHeadGrad)"/>
+              <rect x="52" y="60" width="116" height="84" rx="28" fill="url(#mHL)"/>
+              <rect x="52" y="60" width="116" height="84" rx="28" stroke="rgba(74,144,217,0.5)" stroke-width="2" fill="none"/>
+
+              <!-- Left Eye -->
+              <circle cx="86" cy="98" r="18" fill="#001450"/>
+              <circle cx="86" cy="98" r="18" stroke="rgba(74,144,217,0.6)" stroke-width="1.5" fill="none"/>
+              <ng-container *ngIf="!mascotBlink">
+                <circle cx="86" cy="98" r="12" fill="#0047CC"/>
+                <circle cx="86" cy="98" r="7"  fill="#0a1a60"/>
+                <circle cx="86" cy="98" r="4"  fill="#000420"/>
+                <circle cx="90" cy="94" r="2.5" fill="rgba(255,255,255,0.9)"/>
+                <circle cx="88" cy="100" r="1"  fill="rgba(255,255,255,0.4)"/>
+                <rect x="74" [attr.y]="mascotEyeScanY" width="24" height="1.5" rx="0.75"
+                      fill="#4A90D9" opacity="0.5" style="transition:y 0.6s ease"/>
+              </ng-container>
+              <ng-container *ngIf="mascotBlink">
+                <rect x="70" y="97" width="32" height="3" rx="1.5" fill="#4A90D9"/>
+              </ng-container>
+
+              <!-- Right Eye -->
+              <circle cx="134" cy="98" r="18" fill="#001450"/>
+              <circle cx="134" cy="98" r="18" stroke="rgba(74,144,217,0.6)" stroke-width="1.5" fill="none"/>
+              <ng-container *ngIf="!mascotBlink">
+                <circle cx="134" cy="98" r="12" fill="#0047CC"/>
+                <circle cx="134" cy="98" r="7"  fill="#0a1a60"/>
+                <circle cx="134" cy="98" r="4"  fill="#000420"/>
+                <circle cx="138" cy="94" r="2.5" fill="rgba(255,255,255,0.9)"/>
+                <circle cx="136" cy="100" r="1"  fill="rgba(255,255,255,0.4)"/>
+                <rect x="122" [attr.y]="mascotEyeScanY" width="24" height="1.5" rx="0.75"
+                      fill="#4A90D9" opacity="0.5" style="transition:y 0.6s ease"/>
+              </ng-container>
+              <ng-container *ngIf="mascotBlink">
+                <rect x="118" y="97" width="32" height="3" rx="1.5" fill="#4A90D9"/>
+              </ng-container>
+
+              <!-- Mouth -->
+              <ng-container *ngIf="!vaiTyping">
+                <path d="M 94 122 Q 110 134 126 122" stroke="#4A90D9" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+              </ng-container>
+              <ng-container *ngIf="vaiTyping">
+                <ellipse cx="110" cy="124" rx="14" [attr.ry]="mascotMouth ? 9 : 4"
+                         fill="#001450" style="transition:ry 0.15s ease"/>
+              </ng-container>
+
+              <!-- Blush -->
+              <circle cx="68"  cy="112" r="9" fill="#ED1C24" opacity="0.18"/>
+              <circle cx="152" cy="112" r="9" fill="#ED1C24" opacity="0.18"/>
+
+              <!-- Antenna -->
+              <line x1="110" y1="60" x2="110" y2="32" stroke="rgba(74,144,217,0.6)" stroke-width="3" stroke-linecap="round"/>
+              <circle cx="110" cy="26" r="7" fill="#ED1C24"/>
+              <circle cx="110" cy="26" [attr.r]="mascotAntenna ? 13 : 7"
+                      fill="#ED1C24" opacity="0.25" style="transition:r 0.7s ease"/>
+              <circle cx="107" cy="23" r="2.5" fill="rgba(255,255,255,0.7)"/>
+
+              <!-- Ears -->
+              <rect x="44"  y="78" width="14" height="28" rx="7" fill="#001450"/>
+              <rect x="47"  y="83" width="8"  height="4"  rx="2" fill="#4A90D9" opacity="0.4"/>
+              <rect x="47"  y="91" width="8"  height="4"  rx="2" fill="#ED1C24" opacity="0.4"/>
+              <rect x="47"  y="99" width="8"  height="4"  rx="2" fill="#4A90D9" opacity="0.4"/>
+              <rect x="162" y="78" width="14" height="28" rx="7" fill="#001450"/>
+              <rect x="165" y="83" width="8"  height="4"  rx="2" fill="#4A90D9" opacity="0.4"/>
+              <rect x="165" y="91" width="8"  height="4"  rx="2" fill="#ED1C24" opacity="0.4"/>
+              <rect x="165" y="99" width="8"  height="4"  rx="2" fill="#4A90D9" opacity="0.4"/>
+            </svg>
+
+            <div class="vai-name">VeriAI</div>
+            <div class="vai-sub">Assistant Anti-Fraude BH Assurance</div>
+            <div class="vai-status">
+              <span class="vai-dot"></span> En ligne
+            </div>
+          </div>
+
+          <!-- Suggestions rapides -->
+          <div class="vai-quick">
+            <p class="vai-quick-title">Questions rapides</p>
+            <button class="vai-sug" (click)="vaiSend('Quels sont les sinistres les plus suspects aujourd\'hui ?')">
+              🔍 Sinistres suspects
+            </button>
+            <button class="vai-sug" (click)="vaiSend('Explique-moi comment fonctionne le score de risque ?')">
+              📊 Score de risque
+            </button>
+            <button class="vai-sug" (click)="vaiSend('Quels sont les signaux d\'alerte les plus fréquents ?')">
+              🚨 Signaux d'alerte
+            </button>
+            <button class="vai-sug" (click)="vaiSend('Donne-moi un résumé de l\'activité d\'aujourd\'hui')">
+              📋 Résumé activité
+            </button>
+          </div>
+        </div>
+
+        <!-- CHATBOX RIGHT -->
+        <div class="veriai-right">
+          <div class="vai-chat">
+
+            <!-- Header -->
+            <div class="vai-chat-hd">
+              <div class="vai-chat-hd-l">
+                <div class="vai-chat-av">
+                  <svg width="18" height="18" viewBox="0 0 44 44" fill="none">
+                    <rect x="8" y="12" width="28" height="22" rx="9" fill="white" opacity="0.2"/>
+                    <circle cx="17" cy="22" r="4" fill="white"/>
+                    <circle cx="27" cy="22" r="4" fill="white"/>
+                    <path d="M17 28 Q22 32 27 28" stroke="white" stroke-width="1.5" fill="none" stroke-linecap="round"/>
+                  </svg>
+                </div>
+                <div>
+                  <div class="vai-chat-name">VeriAI</div>
+                  <div class="vai-chat-sub">
+                    <span class="vai-dot"></span> Prêt à analyser
+                  </div>
+                </div>
+              </div>
+              <button class="vai-clear" (click)="vaiMsgs=[]">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+                  <polyline points="3,6 5,6 21,6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                  <path d="M19 6l-1 14H6L5 6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                  <path d="M10 11v6M14 11v6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                </svg>
+                Effacer
+              </button>
+            </div>
+
+            <!-- Messages -->
+            <div class="vai-msgs" #vaiScroll>
+              <!-- Welcome -->
+              <div class="vai-msg vai-msg-bot">
+                <div class="vai-msg-av">
+                  <svg width="22" height="22" viewBox="0 0 44 44" fill="none">
+                    <rect x="8" y="12" width="28" height="22" rx="9" fill="#2266e8"/>
+                    <circle cx="17" cy="22" r="3.5" fill="#4A90D9"/>
+                    <circle cx="17" cy="22" r="2"   fill="#000d2e"/>
+                    <circle cx="18.2" cy="20.8" r="1" fill="rgba(255,255,255,0.95)"/>
+                    <circle cx="27" cy="22" r="3.5" fill="#4A90D9"/>
+                    <circle cx="27" cy="22" r="2"   fill="#000d2e"/>
+                    <circle cx="28.2" cy="20.8" r="1" fill="rgba(255,255,255,0.95)"/>
+                    <path d="M17 29 Q22 33 27 29" stroke="#4A90D9" stroke-width="1.5" fill="none" stroke-linecap="round"/>
+                    <line x1="22" y1="12" x2="22" y2="7" stroke="rgba(74,144,217,0.7)" stroke-width="1.5" stroke-linecap="round"/>
+                    <circle cx="22" cy="6" r="2.5" fill="#ED1C24"/>
+                  </svg>
+                </div>
+                <div class="vai-bbl vai-bbl-bot">
+                  Bonjour <strong>{{ user.prenom }}</strong> 👋 Je suis <strong>VeriAI</strong>,
+                  votre assistant anti-fraude BH Assurance.<br><br>
+                  Posez-moi n'importe quelle question sur un sinistre, un score de risque,
+                  ou les statistiques de fraude. Vous pouvez aussi me donner un numéro
+                  de sinistre directement !
+                </div>
+              </div>
+
+              <!-- Dynamic messages -->
+              <div class="vai-msg" *ngFor="let m of vaiMsgs"
+                   [ngClass]="m.role==='user' ? 'vai-msg-user' : 'vai-msg-bot'">
+                <div class="vai-msg-av" *ngIf="m.role==='assistant'">
+                  <svg width="22" height="22" viewBox="0 0 44 44" fill="none">
+                    <rect x="8" y="12" width="28" height="22" rx="9" fill="#2266e8"/>
+                    <circle cx="17" cy="22" r="3.5" fill="#4A90D9"/>
+                    <circle cx="17" cy="22" r="2"   fill="#000d2e"/>
+                    <circle cx="18.2" cy="20.8" r="1" fill="rgba(255,255,255,0.95)"/>
+                    <circle cx="27" cy="22" r="3.5" fill="#4A90D9"/>
+                    <circle cx="27" cy="22" r="2"   fill="#000d2e"/>
+                    <circle cx="28.2" cy="20.8" r="1" fill="rgba(255,255,255,0.95)"/>
+                    <path d="M17 29 Q22 33 27 29" stroke="#4A90D9" stroke-width="1.5" fill="none" stroke-linecap="round"/>
+                    <line x1="22" y1="12" x2="22" y2="7" stroke="rgba(74,144,217,0.7)" stroke-width="1.5" stroke-linecap="round"/>
+                    <circle cx="22" cy="6" r="2.5" fill="#ED1C24"/>
+                  </svg>
+                </div>
+                <div class="vai-bbl"
+                     [ngClass]="m.role==='user' ? 'vai-bbl-user' : 'vai-bbl-bot'">
+                  <div [innerHTML]="fmt(m.content)"></div>
+                  <span class="vai-time">{{ m.timestamp | date:'HH:mm' }}</span>
+                </div>
+                <div class="vai-uav" *ngIf="m.role==='user'">{{ userInitials }}</div>
+              </div>
+
+              <!-- Typing -->
+              <div class="vai-msg vai-msg-bot" *ngIf="vaiTyping">
+                <div class="vai-msg-av">
+                  <svg width="22" height="22" viewBox="0 0 44 44" fill="none">
+                    <rect x="8" y="12" width="28" height="22" rx="9" fill="#2266e8"/>
+                    <circle cx="17" cy="22" r="3.5" fill="#4A90D9"/>
+                    <circle cx="17" cy="22" r="2"   fill="#000d2e"/>
+                    <circle cx="18.2" cy="20.8" r="1" fill="rgba(255,255,255,0.95)"/>
+                    <circle cx="27" cy="22" r="3.5" fill="#4A90D9"/>
+                    <circle cx="27" cy="22" r="2"   fill="#000d2e"/>
+                    <circle cx="28.2" cy="20.8" r="1" fill="rgba(255,255,255,0.95)"/>
+                    <path d="M17 29 Q22 33 27 29" stroke="#4A90D9" stroke-width="1.5" fill="none" stroke-linecap="round"/>
+                    <line x1="22" y1="12" x2="22" y2="7" stroke="rgba(74,144,217,0.7)" stroke-width="1.5" stroke-linecap="round"/>
+                    <circle cx="22" cy="6" r="2.5" fill="#ED1C24"/>
+                  </svg>
+                </div>
+                <div class="vai-bbl vai-bbl-bot m-typing">
+                  <span></span><span></span><span></span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Input -->
+            <div class="vai-inp-wrap">
+              <div class="vai-inp-box">
+                <textarea class="vai-ta"
+                          [(ngModel)]="vaiInput"
+                          placeholder="Posez une question ou entrez un numéro de sinistre..."
+                          (keydown.enter)="vaiSendMsg($event)"
+                          rows="1"></textarea>
+                <button class="vai-send" (click)="vaiSendMsg(null)"
+                        [disabled]="!vaiInput.trim() || vaiTyping">
+                  <svg viewBox="0 0 24 24" fill="none" width="16" height="16">
+                    <path d="M22 2L11 13M22 2L15 22L11 13M22 2L2 9L11 13"
+                          stroke="white" stroke-width="2"
+                          stroke-linecap="round" stroke-linejoin="round"/>
+                  </svg>
+                </button>
+              </div>
+              <p class="vai-hint">Appuyez sur Entrée pour envoyer · Shift+Entrée pour nouvelle ligne</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
   </main>
 
   <!-- ══ FAB CHAT ═══════════════════════════════════════════════════════════ -->
   <button class="fab" (click)="chatOpen=!chatOpen" [class.fab-on]="chatOpen">
     <span *ngIf="!chatOpen">
-      <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
-        <path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z"
-              fill="white" stroke="white" stroke-width="1"/>
+      <svg width="38" height="38" viewBox="0 0 44 44" fill="none">
+        <rect x="8" y="12" width="28" height="22" rx="9" fill="url(#fabHead2)"/>
+        <rect x="8" y="12" width="28" height="22" rx="9" fill="url(#fabHL2)"/>
+        <circle cx="17" cy="22" r="5" fill="#001450"/>
+        <circle cx="17" cy="22" r="3.5" fill="#4A90D9"/>
+        <circle cx="17" cy="22" r="2" fill="#000d2e"/>
+        <circle cx="18.2" cy="20.8" r="1" fill="rgba(255,255,255,0.95)"/>
+        <circle cx="27" cy="22" r="5" fill="#001450"/>
+        <circle cx="27" cy="22" r="3.5" fill="#4A90D9"/>
+        <circle cx="27" cy="22" r="2" fill="#000d2e"/>
+        <circle cx="28.2" cy="20.8" r="1" fill="rgba(255,255,255,0.95)"/>
+        <path d="M17 29 Q22 33 27 29" stroke="#4A90D9" stroke-width="1.5" fill="none" stroke-linecap="round"/>
+        <line x1="22" y1="12" x2="22" y2="7" stroke="rgba(74,144,217,0.7)" stroke-width="1.5" stroke-linecap="round"/>
+        <circle cx="22" cy="6" r="2.5" fill="#ED1C24"/>
+        <circle cx="21.2" cy="5.2" r="0.8" fill="rgba(255,255,255,0.8)"/>
+        <rect x="5" y="18" width="4" height="8" rx="2" fill="#001450"/>
+        <rect x="35" y="18" width="4" height="8" rx="2" fill="#001450"/>
+        <circle cx="11" cy="26" r="3" fill="#ED1C24" opacity="0.2"/>
+        <circle cx="33" cy="26" r="3" fill="#ED1C24" opacity="0.2"/>
+        <defs>
+          <linearGradient id="fabHead2" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stop-color="#2266e8"/>
+            <stop offset="100%" stop-color="#001f6b"/>
+          </linearGradient>
+          <linearGradient id="fabHL2" x1="0%" y1="0%" x2="50%" y2="100%">
+            <stop offset="0%" stop-color="white" stop-opacity="0.2"/>
+            <stop offset="100%" stop-color="white" stop-opacity="0"/>
+          </linearGradient>
+        </defs>
       </svg>
     </span>
     <span *ngIf="chatOpen">
@@ -947,9 +1330,41 @@
       <div class="mhd">
         <div class="mhd-l">
           <div class="mhd-av">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
-              <path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z"
-                    fill="white" stroke="white" stroke-width="0.5"/>
+            <svg width="32" height="32" viewBox="0 0 44 44" fill="none">
+              <!-- Head -->
+              <rect x="8" y="12" width="28" height="22" rx="9" fill="url(#mhdHead)"/>
+              <rect x="8" y="12" width="28" height="22" rx="9" fill="url(#mhdHL)"/>
+              <!-- Eyes -->
+              <circle cx="17" cy="22" r="5" fill="#001450"/>
+              <circle cx="17" cy="22" r="3.5" fill="#4A90D9"/>
+              <circle cx="17" cy="22" r="2" fill="#000d2e"/>
+              <circle cx="18.2" cy="20.8" r="1" fill="rgba(255,255,255,0.95)"/>
+              <circle cx="27" cy="22" r="5" fill="#001450"/>
+              <circle cx="27" cy="22" r="3.5" fill="#4A90D9"/>
+              <circle cx="27" cy="22" r="2" fill="#000d2e"/>
+              <circle cx="28.2" cy="20.8" r="1" fill="rgba(255,255,255,0.95)"/>
+              <!-- Smile -->
+              <path d="M17 29 Q22 33 27 29" stroke="#4A90D9" stroke-width="1.5" fill="none" stroke-linecap="round"/>
+              <!-- Antenna -->
+              <line x1="22" y1="12" x2="22" y2="7" stroke="rgba(74,144,217,0.7)" stroke-width="1.5" stroke-linecap="round"/>
+              <circle cx="22" cy="6" r="2.5" fill="#ED1C24"/>
+              <circle cx="21.2" cy="5.2" r="0.8" fill="rgba(255,255,255,0.8)"/>
+              <!-- Ears -->
+              <rect x="5" y="18" width="4" height="8" rx="2" fill="#001450"/>
+              <rect x="35" y="18" width="4" height="8" rx="2" fill="#001450"/>
+              <!-- Blush -->
+              <circle cx="11" cy="26" r="3" fill="#ED1C24" opacity="0.2"/>
+              <circle cx="33" cy="26" r="3" fill="#ED1C24" opacity="0.2"/>
+              <defs>
+                <linearGradient id="mhdHead" x1="0%" y1="0%" x2="100%" y2="100%">
+                  <stop offset="0%" stop-color="#2266e8"/>
+                  <stop offset="100%" stop-color="#001f6b"/>
+                </linearGradient>
+                <linearGradient id="mhdHL" x1="0%" y1="0%" x2="50%" y2="100%">
+                  <stop offset="0%" stop-color="white" stop-opacity="0.2"/>
+                  <stop offset="100%" stop-color="white" stop-opacity="0"/>
+                </linearGradient>
+              </defs>
             </svg>
           </div>
           <div>
@@ -978,9 +1393,17 @@
         <!-- Welcome -->
         <div class="m-msg aria-m">
           <div class="m-av">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
-              <path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z"
-                    fill="white" stroke="white" stroke-width="0.5"/>
+            <svg width="22" height="22" viewBox="0 0 44 44" fill="none">
+              <rect x="8" y="12" width="28" height="22" rx="9" fill="#2266e8"/>
+              <circle cx="17" cy="22" r="3.5" fill="#4A90D9"/>
+              <circle cx="17" cy="22" r="2"   fill="#000d2e"/>
+              <circle cx="18.2" cy="20.8" r="1" fill="rgba(255,255,255,0.95)"/>
+              <circle cx="27" cy="22" r="3.5" fill="#4A90D9"/>
+              <circle cx="27" cy="22" r="2"   fill="#000d2e"/>
+              <circle cx="28.2" cy="20.8" r="1" fill="rgba(255,255,255,0.95)"/>
+              <path d="M17 29 Q22 33 27 29" stroke="#4A90D9" stroke-width="1.5" fill="none" stroke-linecap="round"/>
+              <line x1="22" y1="12" x2="22" y2="7" stroke="rgba(74,144,217,0.7)" stroke-width="1.5" stroke-linecap="round"/>
+              <circle cx="22" cy="6" r="2.5" fill="#ED1C24"/>
             </svg>
           </div>
           <div class="m-bbl a-bbl">
@@ -1003,9 +1426,17 @@
         <div class="m-msg" *ngFor="let m of msgs"
              [ngClass]="m.role==='user'?'user-m':'aria-m'">
           <div class="m-av" *ngIf="m.role==='assistant'">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
-              <path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z"
-                    fill="white" stroke="white" stroke-width="0.5"/>
+            <svg width="22" height="22" viewBox="0 0 44 44" fill="none">
+              <rect x="8" y="12" width="28" height="22" rx="9" fill="#2266e8"/>
+              <circle cx="17" cy="22" r="3.5" fill="#4A90D9"/>
+              <circle cx="17" cy="22" r="2"   fill="#000d2e"/>
+              <circle cx="18.2" cy="20.8" r="1" fill="rgba(255,255,255,0.95)"/>
+              <circle cx="27" cy="22" r="3.5" fill="#4A90D9"/>
+              <circle cx="27" cy="22" r="2"   fill="#000d2e"/>
+              <circle cx="28.2" cy="20.8" r="1" fill="rgba(255,255,255,0.95)"/>
+              <path d="M17 29 Q22 33 27 29" stroke="#4A90D9" stroke-width="1.5" fill="none" stroke-linecap="round"/>
+              <line x1="22" y1="12" x2="22" y2="7" stroke="rgba(74,144,217,0.7)" stroke-width="1.5" stroke-linecap="round"/>
+              <circle cx="22" cy="6" r="2.5" fill="#ED1C24"/>
             </svg>
           </div>
           <div class="m-bbl" [ngClass]="m.role==='user'?'u-bbl':'a-bbl'">
@@ -1018,9 +1449,17 @@
         <!-- Typing -->
         <div class="m-msg aria-m" *ngIf="typing">
           <div class="m-av">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
-              <path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z"
-                    fill="white" stroke="white" stroke-width="0.5"/>
+            <svg width="22" height="22" viewBox="0 0 44 44" fill="none">
+              <rect x="8" y="12" width="28" height="22" rx="9" fill="#2266e8"/>
+              <circle cx="17" cy="22" r="3.5" fill="#4A90D9"/>
+              <circle cx="17" cy="22" r="2"   fill="#000d2e"/>
+              <circle cx="18.2" cy="20.8" r="1" fill="rgba(255,255,255,0.95)"/>
+              <circle cx="27" cy="22" r="3.5" fill="#4A90D9"/>
+              <circle cx="27" cy="22" r="2"   fill="#000d2e"/>
+              <circle cx="28.2" cy="20.8" r="1" fill="rgba(255,255,255,0.95)"/>
+              <path d="M17 29 Q22 33 27 29" stroke="#4A90D9" stroke-width="1.5" fill="none" stroke-linecap="round"/>
+              <line x1="22" y1="12" x2="22" y2="7" stroke="rgba(74,144,217,0.7)" stroke-width="1.5" stroke-linecap="round"/>
+              <circle cx="22" cy="6" r="2.5" fill="#ED1C24"/>
             </svg>
           </div>
           <div class="m-bbl a-bbl m-typing">
