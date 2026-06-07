@@ -1,0 +1,1497 @@
+<div class="app" (click)="closeAll($event)">
+
+  <!-- ══ SIDEBAR ═════════════════════════════════════════════════════════ -->
+  <aside class="sidebar" [class.mini]="mini">
+    <div class="sb-brand">
+      <div class="sb-logo-wrap">
+        <img src="assets/logo-bh1.png" alt="BH" class="sb-img"
+             onerror="this.style.display='none';this.nextElementSibling.style.display='flex'"/>
+        <div class="sb-svg" style="display:none">
+          <svg viewBox="0 0 40 40" fill="none" width="34" height="34">
+            <path d="M20 3L35 10V22C35 30 28 36 20 38C12 36 5 30 5 22V10Z" fill="url(#g1)"/>
+            <path d="M14 20L18 24L26 16" stroke="white" stroke-width="2.5"
+                  stroke-linecap="round" stroke-linejoin="round"/>
+            <defs><linearGradient id="g1" x1="5" y1="3" x2="35" y2="38">
+              <stop stop-color="#CC2229"/><stop offset="1" stop-color="#1B2B5E"/>
+            </linearGradient></defs>
+          </svg>
+        </div>
+      </div>
+      <div class="sb-txt" *ngIf="!mini">
+        <span class="t1">BH</span><span class="t2">Guard</span>
+        <small>Anti-Fraude IA</small>
+      </div>
+    </div>
+
+    <nav class="sb-nav">
+      <button class="nb" [class.act]="tab==='dashboard'" (click)="tab='dashboard'">
+        <span class="ni">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+            <rect x="3" y="12" width="4" height="9" rx="1" stroke="currentColor" stroke-width="2"/>
+            <rect x="10" y="7" width="4" height="14" rx="1" stroke="currentColor" stroke-width="2"/>
+            <rect x="17" y="3" width="4" height="18" rx="1" stroke="currentColor" stroke-width="2"/>
+          </svg>
+        </span>
+        <span class="nl" *ngIf="!mini">Dashboard</span>
+      </button>
+      <button class="nb" [class.act]="tab==='analyse'" (click)="tab='analyse'">
+        <span class="ni">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+            <circle cx="11" cy="11" r="8" stroke="currentColor" stroke-width="2"/>
+            <path d="M21 21l-4.35-4.35" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+          </svg>
+        </span>
+        <span class="nl" *ngIf="!mini">Analyse</span>
+      </button>
+      <button class="nb" [class.act]="tab==='liste'" (click)="tab='liste';loadList()">
+        <span class="ni">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+            <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"
+                  stroke="currentColor" stroke-width="2"/>
+          </svg>
+        </span>
+        <span class="nl" *ngIf="!mini">Sinistres</span>
+      </button>
+      <button class="nb" [class.act]="tab==='historique'" (click)="tab='historique';loadHistoriqueAgent()">
+        <span class="ni">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+            <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2"/>
+            <polyline points="12,6 12,12 16,14" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+          </svg>
+        </span>
+        <span class="nl" *ngIf="!mini">Historique</span>
+        <span class="nb-count" *ngIf="!mini && decisions.length>0">{{ decisions.length }}</span>
+      </button>
+      <button class="nb" [class.act]="tab==='veriai'" (click)="tab='veriai'">
+        <span class="ni">
+          <svg width="18" height="18" viewBox="0 0 44 44" fill="none">
+            <rect x="8" y="12" width="28" height="22" rx="9" fill="currentColor" opacity="0.15"/>
+            <rect x="8" y="12" width="28" height="22" rx="9" stroke="currentColor" stroke-width="1.5" fill="none"/>
+            <circle cx="17" cy="22" r="3.5" fill="currentColor"/>
+            <circle cx="27" cy="22" r="3.5" fill="currentColor"/>
+            <path d="M17 28 Q22 32 27 28" stroke="currentColor" stroke-width="1.5" fill="none" stroke-linecap="round"/>
+            <line x1="22" y1="12" x2="22" y2="7" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+            <circle cx="22" cy="6" r="2.5" fill="#ED1C24"/>
+          </svg>
+        </span>
+        <span class="nl" *ngIf="!mini">VeriAI</span>
+      </button>
+    </nav>
+
+    <div class="sb-api" *ngIf="!mini">
+      <div class="api-pill" [class.on]="apiOk">
+        <span class="apd"></span>{{ apiOk ? 'Système actif' : 'API hors ligne' }}
+      </div>
+    </div>
+    <button class="mini-btn" (click)="mini=!mini">{{ mini?'›':'‹' }}</button>
+  </aside>
+
+  <!-- ══ MAIN ═════════════════════════════════════════════════════════════ -->
+  <main class="main">
+
+    <!-- TOPBAR -->
+    <header class="topbar">
+      <div class="tb-l">
+        <h2 class="tb-title">{{ tabTitle() }}</h2>
+        <span class="tb-sub">{{ today | date:'EEEE d MMMM yyyy' }}</span>
+      </div>
+      <div class="tb-r">
+        <div class="srch">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+            <circle cx="11" cy="11" r="8" stroke="#94a3b8" stroke-width="2"/>
+            <path d="M21 21l-4.35-4.35" stroke="#94a3b8" stroke-width="2" stroke-linecap="round"/>
+          </svg>
+          <input type="text" placeholder="Rechercher un sinistre..."
+                 [(ngModel)]="searchQ" (keyup.enter)="doSearch()"
+                 (input)="searchQ.length >= 3 ? doSearch() : null"/>
+        </div>
+
+        <!-- Cloche -->
+        <div class="bell-wrap" (click)="$event.stopPropagation();bellOpen=!bellOpen;newAlert=false">
+          <button class="bell-btn" [class.bell-blink]="newAlert">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+              <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"
+                    stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+              <path d="M13.73 21a2 2 0 0 1-3.46 0" stroke="currentColor"
+                    stroke-width="2" stroke-linecap="round"/>
+            </svg>
+            <span class="bell-dot" *ngIf="unread>0">{{ unread }}</span>
+          </button>
+          <div class="bell-drop" *ngIf="bellOpen">
+            <div class="bd-hd">
+              <span>Alertes Fraude</span>
+              <button (click)="markRead()">Tout lire</button>
+            </div>
+            <div class="bd-item" *ngFor="let a of alertes"
+                 [class.unread]="!a.lue" (click)="openAlert(a)">
+              <div class="bd-sc" [style.color]="sc(a.score)"
+                   [style.background]="sc(a.score)+'18'">{{ a.score }}%</div>
+              <div class="bd-i">
+                <div class="bd-n">Sinistre {{ a.num }}</div>
+                <div class="bd-t">{{ formatAlertTime(a.time) }}</div>
+              </div>
+              <span class="bd-dot" *ngIf="!a.lue"></span>
+            </div>
+            <div class="bd-empty" *ngIf="alertes.length===0">
+              Aucune alerte — les alertes apparaissent après une analyse IA (score ≥ 75%)
+            </div>
+          </div>
+        </div>
+
+        <!-- Profil (UNIQUE — header seulement) -->
+        <div class="prof-wrap" (click)="$event.stopPropagation();usrOpen=!usrOpen">
+          <div class="prof-chip">
+            <div class="prof-av">{{ userInitials }}</div>
+            <div class="prof-info">
+              <div class="prof-name">{{ user.prenom }} {{ user.nom }}</div>
+              <div class="prof-role">{{ user.role }}</div>
+            </div>
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" style="color:#94a3b8">
+              <path d="M6 9l6 6 6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+            </svg>
+          </div>
+          <div class="prof-drop" *ngIf="usrOpen">
+            <div class="pd-hd">
+              <div class="pd-av">{{ userInitials }}</div>
+              <div>
+                <div class="pd-name">{{ user.prenom }} {{ user.nom }}</div>
+                <div class="pd-role">{{ user.role }}</div>
+              </div>
+            </div>
+            <div class="pd-sep"></div>
+            <button class="pd-logout" (click)="logout()">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+                <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"
+                      stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+              </svg>
+              Déconnexion
+            </button>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <!-- ══ DASHBOARD ══════════════════════════════════════════════════════ -->
+    <section class="page" *ngIf="tab==='dashboard'">
+
+      <!-- KPI Ligne 1 : données base (backend réel) -->
+      <div class="kpi-grid">
+        <div class="kpi" style="--ac:#1a56db">
+          <div class="kpi-ic" style="background:#EEF1FA;color:#1B2B5E">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" stroke="currentColor" stroke-width="2"/>
+              <polyline points="14,2 14,8 20,8" stroke="currentColor" stroke-width="2"/>
+            </svg>
+          </div>
+          <div>
+            <div class="kpi-v">{{ (dashData?.totalSinistres ?? totalSinistres) | number }}</div>
+            <div class="kpi-l">Total Sinistres</div>
+          </div>
+          <div class="kpi-tag" style="color:#1B2B5E;background:#EEF1FA">Base</div>
+        </div>
+        <div class="kpi" style="--ac:#dc2626">
+          <div class="kpi-ic" style="background:#FFF0F0;color:#CC2229">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+              <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" stroke="currentColor" stroke-width="2"/>
+              <line x1="12" y1="9" x2="12" y2="13" stroke="currentColor" stroke-width="2"/>
+              <line x1="12" y1="17" x2="12.01" y2="17" stroke="currentColor" stroke-width="2"/>
+            </svg>
+          </div>
+          <div>
+            <div class="kpi-v">{{ (dashData?.dossiersCritiques ?? sinistresEleves) | number }}</div>
+            <div class="kpi-l">Dossiers Critiques</div>
+          </div>
+          <div class="kpi-tag" style="color:#CC2229;background:#FFF0F0">≥ 75%</div>
+        </div>
+        <div class="kpi" style="--ac:#d97706">
+          <div class="kpi-ic" style="background:#FFF8E7;color:#F5A623">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+              <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2"/>
+              <polyline points="12,6 12,12 16,14" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+            </svg>
+          </div>
+          <div>
+            <div class="kpi-v">{{ (dashData?.sinistresRisqueModere ?? 0) | number }}</div>
+            <div class="kpi-l">Risque Modéré</div>
+          </div>
+          <div class="kpi-tag" style="color:#F5A623;background:#FFF8E7">40-74%</div>
+        </div>
+        <div class="kpi" style="--ac:#ea580c">
+          <div class="kpi-ic" style="background:#FFF0F0;color:#CC2229">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+              <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" stroke="currentColor" stroke-width="2"/>
+            </svg>
+          </div>
+          <div>
+            <div class="kpi-v">{{ dashData?.tauxFraude ?? '—' }}<span style="font-size:1rem;font-weight:600" *ngIf="dashData?.tauxFraude!=null">%</span></div>
+            <div class="kpi-l">Taux de Fraude Suspectée</div>
+          </div>
+          <div class="kpi-tag" style="color:#CC2229;background:#FFF0F0">Live</div>
+        </div>
+      </div>
+
+      <!-- KPI Ligne 2 : session + métriques opérationnelles -->
+      <div class="kpi-grid kpi-sm-grid">
+        <div class="kpi-sm">
+          <span class="ks-ic" style="color:#1B2B5E"><svg width="18" height="18" viewBox="0 0 24 24" fill="none"><circle cx="11" cy="11" r="8" stroke="currentColor" stroke-width="2"/><path d="M21 21l-4.35-4.35" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></span>
+          <div><div class="ks-v">{{ nbAnalyses }}</div><div class="ks-l">Analysés ce jour</div></div>
+        </div>
+        <div class="kpi-sm">
+          <span class="ks-ic" style="color:#1B2B5E"><svg width="18" height="18" viewBox="0 0 24 24" fill="none"><line x1="12" y1="2" x2="12" y2="22" stroke="currentColor" stroke-width="2"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></span>
+          <div><div class="ks-v">{{ decisions.length }}</div><div class="ks-l">Décisions prises</div></div>
+        </div>
+        <div class="kpi-sm">
+          <span class="ks-ic">⏱️</span>
+          <div>
+            <div class="ks-v">{{ dashData?.delaiMoyenJours ?? '—' }}<span style="font-size:.75rem;font-weight:500" *ngIf="dashData?.delaiMoyenJours"> j</span></div>
+            <div class="ks-l">Délai moyen déclaration</div>
+          </div>
+        </div>
+        <div class="kpi-sm">
+          <span class="ks-ic" style="color:#27AE60"><svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" stroke="currentColor" stroke-width="2"/><polyline points="22,4 12,14.01 9,11.01" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></span>
+          <div>
+            <div class="ks-v">{{ tauxValides }}<span style="font-size:.75rem;font-weight:500">%</span></div>
+            <div class="ks-l">Taux validés (session)</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Grille principale 2×2 -->
+      <div class="dash-grid">
+        <!-- Taux fraude (dynamique) -->
+        <div class="card">
+          <div class="card-hd"><h3>Taux de Détection de Fraude</h3></div>
+          <div class="fraud-wrap">
+            <div class="fraud-ring">
+              <svg viewBox="0 0 120 120" width="110" height="110">
+                <circle cx="60" cy="60" r="48" fill="none" stroke="#f1f5f9" stroke-width="12"/>
+                <circle cx="60" cy="60" r="48" fill="none" stroke="#dc2626" stroke-width="12"
+                        stroke-linecap="round"
+                        [attr.stroke-dasharray]="fraudArc()"
+                        stroke-dashoffset="75.4" transform="rotate(-90 60 60)"/>
+                <text x="60" y="56" text-anchor="middle" fill="#1e293b" font-size="18" font-weight="800">{{ (dashData?.tauxFraude ?? 0) | number:'1.0-1' }}%</text>
+                <text x="60" y="70" text-anchor="middle" fill="#94a3b8" font-size="8">fraude</text>
+              </svg>
+            </div>
+            <div class="fraud-legend">
+              <div class="fl-item"><span style="background:#dc2626"></span><div><b>{{ (dashData?.dossiersCritiques ?? 0) | number }}</b><small>Fraudes suspectées</small></div></div>
+              <div class="fl-item"><span style="background:#d97706"></span><div><b>{{ (dashData?.sinistresRisqueModere ?? 0) | number }}</b><small>Risque Modéré</small></div></div>
+              <div class="fl-item"><span style="background:#16a34a"></span><div><b>{{ (dashData?.sinistresConformes ?? 0) | number }}</b><small>Dossiers conformes</small></div></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Répartition (dynamique) -->
+        <div class="card">
+          <div class="card-hd"><h3>Répartition par Niveau de Risque</h3></div>
+          <div class="risk-bars" *ngIf="dashData?.repartitionRisque?.length">
+            <div class="rb" *ngFor="let r of dashData.repartitionRisque">
+              <div class="rb-lbl"><span [style.background]="r.color"></span>{{ r.niveau }}</div>
+              <div class="rb-track"><div class="rb-fill" [style.width.%]="r.pct" [style.background]="r.color"></div></div>
+              <span [style.color]="r.color" class="rb-pct">{{ r.pct }}%</span>
+            </div>
+          </div>
+          <div class="risk-bars" *ngIf="!dashData?.repartitionRisque?.length">
+            <div class="rb">
+              <div class="rb-lbl"><span style="background:#dc2626"></span>Chargement...</div>
+              <div class="rb-track"><div class="rb-fill" style="width:0%;background:#dc2626"></div></div>
+              <span style="color:#94a3b8" class="rb-pct">—</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Analyses ML session / sinistres critiques backend -->
+        <div class="card">
+          <div class="card-hd">
+            <h3>{{ dernieres.length>0 ? 'Dernières Analyses ML' : 'Sinistres Critiques DB' }}</h3>
+            <button class="btn-sm" (click)="tab='analyse'">+ Analyser</button>
+          </div>
+          <div *ngIf="dernieres.length>0">
+            <div class="rec-row" *ngFor="let a of dernieres" (click)="openFromDash(a)">
+              <div class="rec-num">{{ a.numSinistre }}</div>
+              <div class="rec-bar"><div [style.width.%]="a.score||0" [style.background]="sc(a.score||0)"></div></div>
+              <span [style.color]="sc(a.score||0)" class="rec-sc">{{ a.score|number:'1.0-0' }}%</span>
+              <span class="oval" [ngClass]="oc(a.score||0)">{{ ol(a.score||0) }}</span>
+            </div>
+          </div>
+          <div *ngIf="dernieres.length===0 && dashData?.dernieresSinistres?.length>0">
+            <div class="rec-row" *ngFor="let s of dashData.dernieresSinistres" (click)="analyseNum(s.numSinistre)">
+              <div class="rec-num">{{ s.numSinistre }}</div>
+              <div class="rec-nat" style="font-size:.68rem;color:#64748b;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">
+                {{ s.nature }} · {{ s.montant|number:'1.0-0' }} TND
+              </div>
+              <span [style.color]="sc(s.score)" class="rec-sc">{{ s.score }}%</span>
+              <span class="oval" [ngClass]="oc(s.score)" style="font-size:.6rem">→</span>
+            </div>
+          </div>
+          <div class="empty-box" *ngIf="dernieres.length===0 && !dashData?.dernieresSinistres?.length">
+            <p>Chargement...</p><button class="btn-blue" (click)="tab='analyse'">Analyser →</button>
+          </div>
+        </div>
+
+        <!-- Top gouvernorats (dynamique) -->
+        <div class="card">
+          <div class="card-hd">
+            <h3 style="display:flex;align-items:center;gap:6px">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><polygon points="1,6 1,22 8,18 16,22 23,18 23,2 16,6 8,2" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><line x1="8" y1="2" x2="8" y2="18" stroke="currentColor" stroke-width="2"/><line x1="16" y1="6" x2="16" y2="22" stroke="currentColor" stroke-width="2"/></svg>
+              Top Gouvernorats
+            </h3>
+            <div class="gov-filters">
+              <button class="gf-btn" [class.gf-act]="govAnnee===''"
+                      [disabled]="govLoading" (click)="onGovAnnee('')">Tous</button>
+              <button class="gf-btn" [class.gf-act]="govAnnee==='2024'"
+                      [disabled]="govLoading" (click)="onGovAnnee('2024')">2024</button>
+              <button class="gf-btn" [class.gf-act]="govAnnee==='2023'"
+                      [disabled]="govLoading" (click)="onGovAnnee('2023')">2023</button>
+              <button class="gf-btn" [class.gf-act]="govAnnee==='2022'"
+                      [disabled]="govLoading" (click)="onGovAnnee('2022')">2022</button>
+              <button class="gf-btn" [class.gf-act]="govAnnee==='2021'"
+                      [disabled]="govLoading" (click)="onGovAnnee('2021')">2021</button>
+              <button class="gf-btn" [class.gf-act]="govAnnee==='2020'"
+                      [disabled]="govLoading" (click)="onGovAnnee('2020')">2020</button>
+            </div>
+          </div>
+          <div class="gov-list" style="position:relative;min-height:60px;">
+            <div *ngIf="govLoading"
+                 style="position:absolute;inset:0;display:flex;align-items:center;
+                        justify-content:center;background:rgba(255,255,255,.7);z-index:2;
+                        border-radius:8px;">
+              <div style="width:22px;height:22px;border:3px solid var(--g200);
+                          border-top-color:var(--blue);border-radius:50%;
+                          animation:spin .7s linear infinite;"></div>
+            </div>
+            <ng-container *ngIf="dashData?.topGouvernorats?.length>0">
+              <div class="gov-row" *ngFor="let g of dashData.topGouvernorats">
+                <span class="gov-n">{{ g.nom }}</span>
+                <div class="gov-track">
+                  <div [style.width.%]="g.pct"
+                       [style.background]="g.color"
+                       style="transition:width .8s ease"></div>
+                </div>
+                <span [style.color]="g.color" class="gov-p">{{ g.count | number }}</span>
+              </div>
+            </ng-container>
+            <div class="empty-box" *ngIf="!govLoading && !dashData?.topGouvernorats?.length">
+              <p style="color:#94a3b8;font-size:.8rem">Aucune donnée</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Évolution mensuelle -->
+      <div class="card evo-card">
+        <div class="card-hd">
+          <h3 style="display:flex;align-items:center;gap:6px">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><rect x="3" y="12" width="4" height="9" rx="1" stroke="currentColor" stroke-width="2"/><rect x="10" y="7" width="4" height="14" rx="1" stroke="currentColor" stroke-width="2"/><rect x="17" y="3" width="4" height="18" rx="1" stroke="currentColor" stroke-width="2"/></svg>
+            Sinistres par Mois
+          </h3>
+          <div class="evo-filters">
+            <button class="ef-btn" [class.ef-act]="evoFilter==='tous'"
+                    (click)="evoFilter='tous'" style="--fc:#1a56db">Tous</button>
+            <button class="ef-btn" [class.ef-act]="evoFilter==='conformes'"
+                    (click)="evoFilter='conformes'">Conformes</button>
+            <button class="ef-btn" [class.ef-act]="evoFilter==='risque-modere'"
+                    (click)="evoFilter='risque-modere'">Risque Modéré</button>
+            <button class="ef-btn" [class.ef-act]="evoFilter==='critiques'"
+                    (click)="evoFilter='critiques'">Critiques</button>
+          </div>
+        </div>
+
+        <div class="evo-wrap2" *ngIf="dashData?.evolutionMensuelle?.length>0">
+          <div class="evo2-chart">
+            <div class="evo2-y">
+              <span>{{ evoMax2() | number:'1.0-0':'fr-TN' }}</span>
+              <span>{{ (evoMax2()*0.75) | number:'1.0-0':'fr-TN' }}</span>
+              <span>{{ (evoMax2()*0.5)  | number:'1.0-0':'fr-TN' }}</span>
+              <span>{{ (evoMax2()*0.25) | number:'1.0-0':'fr-TN' }}</span>
+              <span>0</span>
+            </div>
+            <div class="evo2-bars">
+              <div class="evo2-col" *ngFor="let e of dashData.evolutionMensuelle">
+                <div class="evo2-bar-wrap">
+                  <div class="evo2-val-tip">{{ evoVal(e) | number }}</div>
+                  <div class="evo2-bar"
+                       [style.height.%]="evoMax2()>0 ? (evoVal(e)/evoMax2()*100) : 0"
+                       [style.background]="evoColor()">
+                  </div>
+                </div>
+                <div class="evo2-lbl">{{ e.mois | slice:5:7 }}/{{ e.mois | slice:2:4 }}</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="evo2-stats">
+            <div class="evo2-total">
+              <div class="et-val" [style.color]="evoColor()">{{ evoTotal2() | number }}</div>
+              <div class="et-lbl">Total {{ evoFilterLabel() }} (24 mois)</div>
+            </div>
+            <div class="evo2-avg">
+              <div class="et-val" style="color:var(--g600)">
+                {{ (evoTotal2() / (dashData.evolutionMensuelle.length||1)) | number:'1.0-0':'fr-TN' }}
+              </div>
+              <div class="et-lbl">Moyenne par mois</div>
+            </div>
+            <div class="evo2-pic">
+              <div class="et-val" style="color:var(--g600)">{{ evoPicMois2() }}</div>
+              <div class="et-lbl">Mois le plus élevé</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="empty-box" *ngIf="!dashData?.evolutionMensuelle?.length">
+          <p style="color:#94a3b8;font-size:.8rem">Chargement...</p>
+        </div>
+      </div>
+
+      <!-- Grille 3 colonnes : nouveaux blocs -->
+      <div class="dash-grid-3">
+
+        <!-- Top motifs de suspicion -->
+        <div class="card">
+          <div class="card-hd"><h3 style="display:flex;align-items:center;gap:6px"><svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z" stroke="currentColor" stroke-width="2"/><line x1="4" y1="22" x2="4" y2="15" stroke="currentColor" stroke-width="2"/></svg>Top Motifs de Suspicion</h3></div>
+          <div *ngIf="dashData?.topMotifs?.length>0">
+            <div class="motif-row" *ngFor="let m of dashData.topMotifs">
+              <div class="motif-lbl">{{ m.motif }}</div>
+              <div class="motif-bar-wrap">
+                <div class="motif-bar-fill" [style.width.%]="m.pct" [style.background]="m.color"></div>
+              </div>
+              <span class="motif-count" [style.color]="m.color">{{ m.count | number }}</span>
+            </div>
+          </div>
+          <div class="empty-box" *ngIf="!dashData?.topMotifs?.length">
+            <p style="color:#94a3b8;font-size:.8rem">Chargement...</p>
+          </div>
+        </div>
+
+        <!-- Alertes critiques non traitées -->
+        <div class="card">
+          <div class="card-hd">
+            <h3 style="display:flex;align-items:center;gap:6px"><svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" stroke="currentColor" stroke-width="2"/><line x1="12" y1="9" x2="12" y2="13" stroke="currentColor" stroke-width="2"/><line x1="12" y1="17" x2="12.01" y2="17" stroke="currentColor" stroke-width="2"/></svg>Alertes Non Traitées</h3>
+            <span class="total-tag" *ngIf="dashData?.alertesNonTraitees?.length">{{ dashData.alertesNonTraitees.length }}</span>
+          </div>
+          <div *ngIf="dashData?.alertesNonTraitees?.length>0" style="max-height:220px;overflow-y:auto;overflow-x:hidden">
+            <div class="alerte-row" *ngFor="let a of dashData.alertesNonTraitees" (click)="analyseNum(a.numSinistre)">
+              <div class="al-sc" [style.background]="sc(a.score)+'22'" [style.color]="sc(a.score)">{{ a.score }}%</div>
+              <div class="al-i">
+                <div class="al-num">{{ a.numSinistre }}</div>
+                <div class="al-nat">{{ a.nature }} · {{ a.gouvernorat }}</div>
+              </div>
+              <button class="btn-tbl" style="flex-shrink:0">→</button>
+            </div>
+          </div>
+          <div class="empty-box" *ngIf="!dashData?.alertesNonTraitees?.length">
+            <p style="color:#94a3b8;font-size:.8rem">Aucune alerte critique</p>
+          </div>
+        </div>
+
+        <!-- Activité récente de l'agent -->
+        <div class="card">
+          <div class="card-hd">
+            <h3 style="display:flex;align-items:center;gap:6px"><svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" stroke="currentColor" stroke-width="2"/><polyline points="14,2 14,8 20,8" stroke="currentColor" stroke-width="2"/><line x1="8" y1="13" x2="16" y2="13" stroke="currentColor" stroke-width="2"/><line x1="8" y1="17" x2="16" y2="17" stroke="currentColor" stroke-width="2"/></svg>Activité Récente</h3>
+            <div style="display:flex;gap:6px" *ngIf="decisions.length>0">
+              <span class="oval oc-ok" style="font-size:.62rem">{{ conformes }}</span>
+              <span class="oval oc-bad" style="font-size:.62rem">{{ fraudes }}</span>
+            </div>
+          </div>
+          <div *ngIf="decisions.length>0">
+            <div class="act-row" *ngFor="let d of decisions.slice(0,6)">
+              <span [style.color]="d.statut==='CONFORME'?'#27AE60':'#CC2229'" style="flex-shrink:0;display:flex">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+                  <ng-container *ngIf="d.statut==='CONFORME'"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" stroke="currentColor" stroke-width="2"/><polyline points="22,4 12,14.01 9,11.01" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></ng-container>
+                  <ng-container *ngIf="d.statut!=='CONFORME'"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" stroke="currentColor" stroke-width="2"/><line x1="12" y1="9" x2="12" y2="13" stroke="currentColor" stroke-width="2"/></ng-container>
+                </svg>
+              </span>
+              <div class="act-i">
+                <div class="act-num">{{ d.num }}</div>
+                <div class="act-time">{{ d.date|date:'HH:mm' }} · Score {{ d.score|number:'1.0-0' }}%</div>
+              </div>
+              <span class="oval" [ngClass]="d.statut==='CONFORME'?'oc-ok':'oc-bad'" style="font-size:.6rem">
+                {{ d.statut==='CONFORME'?'Validé':'Bloqué' }}
+              </span>
+            </div>
+          </div>
+          <div class="empty-box" *ngIf="decisions.length===0">
+            <p>Aucune décision cette session</p>
+            <button class="btn-blue" (click)="tab='analyse'">Analyser →</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ══ ANALYSE ════════════════════════════════════════════════════════ -->
+    <section class="page analyse-page" *ngIf="tab==='analyse'">
+      <div class="an-left">
+
+        <div class="card search-card">
+          <h3 class="sc-title">Analyser un Sinistre</h3>
+          <div class="sc-row">
+            <input class="sc-inp" [(ngModel)]="numInput"
+                   placeholder="Numéro sinistre (ex: 20033100731)"
+                   (keyup.enter)="analyser()"/>
+            <button class="btn-blue" (click)="analyser()" [disabled]="loading||!numInput.trim()">
+              <span *ngIf="!loading">Analyser →</span>
+              <span *ngIf="loading" class="ld-row">
+                <span class="ld"></span><span class="ld"></span><span class="ld"></span>
+              </span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Loader -->
+        <div class="card load-card" *ngIf="loading">
+          <div class="lc-spin"><div class="s1"></div><div class="s2"></div><div class="s3"></div></div>
+          <h4>Analyse en cours...</h4>
+          <p>Random Forest + VeriAI traitent votre requête</p>
+          <div class="lc-steps">
+            <div class="ls" [class.done]="lStep>0">✓ Chargement données sinistre</div>
+            <div class="ls" [class.done]="lStep>1">✓ Score ML calculé</div>
+            <div class="ls" [class.act]="lStep===2">⟳ Génération explication VeriAI...</div>
+          </div>
+        </div>
+
+        <!-- Résultat -->
+        <div class="card result-card" *ngIf="resultat&&!loading">
+          <div class="rc-top">
+            <!-- Cercle gauche -->
+            <div class="score-svg">
+              <svg viewBox="0 0 120 120">
+                <circle cx="60" cy="60" r="50" fill="none" stroke="#f1f5f9" stroke-width="10"/>
+                <circle cx="60" cy="60" r="50" fill="none"
+                        [attr.stroke]="sc(resultat.score_risque)" stroke-width="10"
+                        stroke-linecap="round"
+                        [attr.stroke-dasharray]="arcVal(resultat.score_risque)"
+                        stroke-dashoffset="78.5" transform="rotate(-90 60 60)"/>
+                <text x="60" y="55" text-anchor="middle" fill="#1e293b" font-size="20" font-weight="800">
+                  {{ resultat.score_risque|number:'1.0-0' }}%</text>
+                <text x="60" y="71" text-anchor="middle" fill="#94a3b8" font-size="8">SCORE GLOBAL</text>
+              </svg>
+            </div>
+
+            <!-- Centre : infos dossier -->
+            <div class="rc-meta">
+              <div class="rc-num">Dossier {{ resultat.num_sinistre }}</div>
+              <div class="unique-badge"
+                   [style.color]="sc(resultat.score_risque)"
+                   [style.background]="sc(resultat.score_risque) + '18'"
+                   [style.border-color]="sc(resultat.score_risque)">
+                {{ ol(resultat.score_risque) }}
+              </div>
+            </div>
+
+            <!-- Droite : scores détaillés -->
+            <div class="scores-detail">
+              <div class="sd-item">
+                <div class="sd-lbl">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none">
+                    <path d="M9 11l3 3L22 4" stroke="#1B2B5E" stroke-width="2" stroke-linecap="round"/>
+                    <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"
+                          stroke="#1B2B5E" stroke-width="2" stroke-linecap="round"/>
+                  </svg>
+                  Score Formule
+                </div>
+                <div class="sd-val" [style.color]="sc(resultat.score_formule||0)">
+                  {{ (resultat.score_formule ?? 0) | number:'1.0-0':'fr-TN' }}%
+                </div>
+                <div class="sd-bar">
+                  <div [style.width.%]="resultat.score_formule||0"
+                       [style.background]="sc(resultat.score_formule||0)"></div>
+                </div>
+              </div>
+              <div class="sd-sep"></div>
+              <div class="sd-item">
+                <div class="sd-lbl">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none">
+                    <path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z"
+                          stroke="#CC2229" stroke-width="2" fill="none"/>
+                  </svg>
+                  Score IA (ML)
+                </div>
+                <div class="sd-val" [style.color]="sc(resultat.score_ml||0)">
+                  {{ (resultat.score_ml ?? 0) | number:'1.0-0':'fr-TN' }}%
+                </div>
+                <div class="sd-bar">
+                  <div [style.width.%]="resultat.score_ml||0"
+                       [style.background]="sc(resultat.score_ml||0)"></div>
+                </div>
+              </div>
+              <div class="sd-formule">
+                (2 × {{ resultat.score_formule??0 | number:'1.0-0':'fr-TN' }} + {{ resultat.score_ml??0 | number:'1.0-0':'fr-TN' }}) / 3
+              </div>
+            </div>
+          </div>
+
+          <div class="risk-track-wrap">
+            <div class="rz-labels">
+              <span style="color:#16a34a">Conforme</span>
+              <span style="color:#F5A623">Risque Modéré</span>
+              <span style="color:#CC2229">Élevé</span>
+              <span style="color:#CC2229">Fraude</span>
+            </div>
+            <div class="rz-bar">
+              <div style="background:#dcfce7;flex:40"></div>
+              <div style="background:#fef9c3;flex:35"></div>
+              <div style="background:#ffedd5;flex:18"></div>
+              <div style="background:#fee2e2;flex:7"></div>
+              <div class="rz-pin" [style.left.%]="resultat.score_risque"
+                   [style.background]="sc(resultat.score_risque)"></div>
+            </div>
+          </div>
+
+          <div class="flags-block" *ngIf="resultat.flags_detectes.length>0">
+            <div class="flags-title" style="display:flex;align-items:center;gap:5px"><svg width="13" height="13" viewBox="0 0 24 24" fill="none"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z" stroke="currentColor" stroke-width="2"/><line x1="4" y1="22" x2="4" y2="15" stroke="currentColor" stroke-width="2"/></svg>Signaux d'Alerte ({{ resultat.flags_detectes.length }})</div>
+            <div class="flags-row">
+              <span class="flag-pill" *ngFor="let f of resultat.flags_detectes">{{ f }}</span>
+            </div>
+          </div>
+          <div class="no-flag" *ngIf="resultat.flags_detectes.length===0">
+            Aucun signal binaire — risque évalué par le modèle ML
+          </div>
+
+          <div class="aria-box">
+            <div class="aria-box-hd">
+              <div class="aria-icon-wrap">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+                  <path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z"
+                        stroke="#1a56db" stroke-width="2" fill="#eff6ff"/>
+                </svg>
+              </div>
+              <div>
+                <div class="aria-box-name">Analyse VeriAI</div>
+                <div class="aria-box-sub">Assistant IA de Vérification Anti-Fraude</div>
+              </div>
+            </div>
+            <div class="aria-box-txt" [innerHTML]="fmt(resultat.explication_ia)"></div>
+          </div>
+
+          <!-- DÉCISION -->
+          <div class="dec-bloc">
+            <div class="dec-bloc-hd">
+              <div class="dec-ico-wrap" style="color:#1B2B5E"><svg width="22" height="22" viewBox="0 0 24 24" fill="none"><line x1="12" y1="2" x2="12" y2="22" stroke="currentColor" stroke-width="2"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></div>
+              <div>
+                <h4>Décision finale</h4>
+                <p>{{ user.prenom }} {{ user.nom }} — {{ today | date:'dd/MM/yyyy HH:mm' }}</p>
+              </div>
+            </div>
+            <div class="dec-taken" *ngIf="decisionPrise">
+              <div class="dt-inner" [class.dt-ok]="decisionPrise==='CONFORME'" [class.dt-ko]="decisionPrise==='FRAUDE'">
+                <span [style.color]="decisionPrise==='CONFORME'?'#27AE60':'#CC2229'" style="display:flex"><svg width="18" height="18" viewBox="0 0 24 24" fill="none"><ng-container *ngIf="decisionPrise==='CONFORME'"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" stroke="currentColor" stroke-width="2"/><polyline points="22,4 12,14.01 9,11.01" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></ng-container><ng-container *ngIf="decisionPrise!=='CONFORME'"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" stroke="currentColor" stroke-width="2"/><line x1="12" y1="9" x2="12" y2="13" stroke="currentColor" stroke-width="2"/></ng-container></svg></span>
+                <div>
+                  <div class="dt-title">{{ decisionPrise==='CONFORME'?'Dossier Validé — Conforme':'Dossier Bloqué — Fraude suspectée' }}</div>
+                  <div class="dt-agent">Par {{ user.prenom }} {{ user.nom }}</div>
+                </div>
+                <button class="dt-undo" (click)="decisionPrise=null">Annuler</button>
+              </div>
+            </div>
+            <div *ngIf="!decisionPrise">
+              <div class="dec-btns" *ngIf="pendingDecision!=='FRAUDE'&&!decisionLoading">
+                <button class="btn-ok" (click)="saveDecision('CONFORME')">Valider le dossier</button>
+                <button class="btn-ko" (click)="pendingDecision='FRAUDE';commentaireFraude=''">Bloquer — Fraude</button>
+              </div>
+              <div class="dec-comment-wrap" *ngIf="pendingDecision==='FRAUDE'&&!decisionLoading">
+                <p class="dec-comment-note">Commentaire obligatoire pour bloquer ce dossier :</p>
+                <textarea class="dec-textarea" [(ngModel)]="commentaireFraude" rows="3"
+                          placeholder="Motifs de suspicion, anomalies constatées..."></textarea>
+                <div class="dec-comment-btns">
+                  <button class="btn-ko" (click)="confirmDecision('FRAUDE')"
+                          [disabled]="!commentaireFraude.trim()">Confirmer le Blocage</button>
+                  <button class="btn-outline" (click)="pendingDecision=null">Annuler</button>
+                </div>
+              </div>
+              <div class="dec-saving" *ngIf="decisionLoading">
+                <span class="ld-row"><span class="ld"></span><span class="ld"></span><span class="ld"></span></span>
+                Sauvegarde en cours...
+              </div>
+            </div>
+          </div>
+
+          <div class="action-row">
+            <button class="btn-blue" (click)="chatOpen=true">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"
+                      stroke="white" stroke-width="2"/>
+              </svg>
+              Discuter avec VeriAI
+            </button>
+            <button class="btn-outline" (click)="downloadAuditPDF()" *ngIf="resultat">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+                <path d="M12 15l-4-4h3V4h2v7h3l-4 4z" fill="currentColor"/>
+                <path d="M20 18H4v2h16v-2z" fill="currentColor"/>
+              </svg>
+              Rapport PDF
+            </button>
+            <button class="btn-outline" (click)="resultat=null;numInput='';decisionPrise=null">↺ Nouvelle analyse</button>
+          </div>
+        </div>
+
+        <div class="card empty-card" *ngIf="!resultat&&!loading">
+          <div class="ec-ico">
+            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" opacity=".2">
+              <circle cx="11" cy="11" r="8" stroke="#1a56db" stroke-width="2"/>
+              <path d="M21 21l-4.35-4.35" stroke="#1a56db" stroke-width="2" stroke-linecap="round"/>
+            </svg>
+          </div>
+          <p>Saisissez un numéro de sinistre pour lancer l'analyse IA</p>
+        </div>
+      </div>
+
+      <!-- Historique sidebar -->
+      <div class="an-right">
+        <div class="card histo-card">
+          <div class="card-hd"><h3>Historique</h3></div>
+          <div *ngIf="dernieres.length>0">
+            <div class="hi-row" *ngFor="let a of dernieres;let i=index" (click)="reanalyse(a)">
+              <span class="hi-i">{{ i+1 }}</span>
+              <div class="hi-info">
+                <div class="hi-num">{{ a.numSinistre }}</div>
+                <div class="hi-bar"><div [style.width.%]="a.score||0" [style.background]="sc(a.score||0)"></div></div>
+              </div>
+              <span [style.color]="sc(a.score||0)" class="hi-sc">{{ a.score|number:'1.0-0' }}%</span>
+            </div>
+          </div>
+          <div class="histo-empty" *ngIf="dernieres.length===0"><p>Aucune analyse</p></div>
+        </div>
+
+        <div class="card histo-card" *ngIf="decisions.length>0">
+          <div class="card-hd"><h3>Décisions</h3></div>
+          <div class="hi-row" *ngFor="let d of decisions">
+            <span [style.color]="d.statut==='CONFORME'?'#27AE60':'#CC2229'">{{ d.statut==='CONFORME'?'✓':'✕' }}</span>
+            <div class="hi-info">
+              <div class="hi-num">{{ d.num }}</div>
+              <div class="hi-agent">{{ d.agent }} — {{ d.date|date:'HH:mm' }}</div>
+            </div>
+            <span class="oval" [ngClass]="d.statut==='CONFORME'?'oc-ok':'oc-bad'">
+              {{ d.statut==='CONFORME'?'Validé':'Bloqué' }}
+            </span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ══ LISTE SINISTRES ════════════════════════════════════════════════ -->
+    <section class="page" *ngIf="tab==='liste'">
+      <div class="card table-card">
+        <div class="table-hd">
+          <h3>Registre des Sinistres</h3>
+          <div class="list-err-bar" *ngIf="listError">
+            Erreur de chargement — données précédentes affichées.
+            <button class="btn-retry" (click)="loadList()">↺ Réessayer</button>
+          </div>
+          <div class="filter-row">
+            <div class="fi-srch">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+                <circle cx="11" cy="11" r="8" stroke="#94a3b8" stroke-width="2"/>
+                <path d="M21 21l-4.35-4.35" stroke="#94a3b8" stroke-width="2" stroke-linecap="round"/>
+              </svg>
+              <input type="text" [(ngModel)]="tfilt" placeholder="Rechercher..."/>
+            </div>
+            <select class="fi-sel" [(ngModel)]="filtGov" (ngModelChange)="onNiveauChange()">
+              <option value="">Tous gouvernorats</option>
+              <option *ngFor="let g of listGovs" [value]="g">{{ g }}</option>
+            </select>
+            <select class="fi-sel" [(ngModel)]="filtNature" (ngModelChange)="onNiveauChange()">
+              <option value="">Toutes natures</option>
+              <option *ngFor="let n of listNatures" [value]="n">{{ n }}</option>
+            </select>
+            <select class="fi-sel" [(ngModel)]="filtRisque" (ngModelChange)="onNiveauChange()">
+              <option value="">Tous niveaux</option>
+              <option value="critique">Critique (&gt;75%)</option>
+              <option value="investigation">Risque Modéré (40-75%)</option>
+              <option value="conforme">Conforme (&lt;40%)</option>
+            </select>
+            <span class="total-tag">{{ totalSinistres | number }} sinistres</span>
+          </div>
+        </div>
+
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>#</th><th>N° Sinistre & Motifs</th><th>Gouvernorat</th>
+                <th>Nature</th><th>Montant TND</th><th>Blessés</th>
+                <th>Score</th><th>Niveau</th><th>Décision Agent</th><th>Action</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let s of sinistresAffiches;let i=index"
+                  [class.row-red]="(s.mlAnalysed||s.scoreEstime)&&(s.score||0)>=75"
+                  [class.row-yel]="(s.mlAnalysed||s.scoreEstime)&&(s.score||0)>=40&&(s.score||0)<75"
+                  (click)="clickRow(s)">
+                <td class="td-i">{{ i+1 }}</td>
+                <td>
+                  <div class="td-num">{{ s.numSinistre }}</div>
+                  <div class="motifs-row" *ngIf="s.motifs&&s.motifs.length>0">
+                    <span class="motif-pill" *ngFor="let m of s.motifs">{{ m }}</span>
+                  </div>
+                </td>
+                <td>{{ s.gouvernorat }}</td>
+                <td>{{ s.natureSinistre }}</td>
+                <td class="td-amt">{{ (s.montantEvaluation||0)|number:'1.0-0' }}</td>
+                <td class="td-c">
+                  <span class="bl-pill" *ngIf="s.nombreBlesses>0">{{ s.nombreBlesses }}</span>
+                  <span *ngIf="s.nombreBlesses===0" style="color:#cbd5e1">—</span>
+                </td>
+                <td>
+                  <div class="sc-cell" *ngIf="s.mlAnalysed||(s.scoreEstime&&(s.score||0)>0)">
+                    <div class="sc-bar"><div [style.width.%]="s.score||0" [style.background]="sc(s.score||0)"></div></div>
+                    <span [style.color]="sc(s.score||0)" class="sc-val">
+                      <ng-container *ngIf="s.scoreEstime">~</ng-container>{{ (s.score||0)|number:'1.0-0' }}%
+                    </span>
+                  </div>
+                  <span class="na-txt" *ngIf="!s.mlAnalysed&&!s.scoreEstime&&!(s.score)">—</span>
+                </td>
+                <td>
+                  <span class="oval" [ngClass]="oc(s.score||0)" *ngIf="s.mlAnalysed">{{ ol(s.score||0) }}</span>
+                  <span class="oval" [ngClass]="oc(s.score||0)" style="opacity:.7;border-style:dashed"
+                        *ngIf="!s.mlAnalysed&&s.scoreEstime&&(s.score||0)>0">~ {{ ol(s.score||0) }}</span>
+                  <span class="oval oc-ok" *ngIf="!s.mlAnalysed&&s.scoreEstime&&!(s.score||0)">Conforme</span>
+                  <span class="oval oc-na" *ngIf="!s.mlAnalysed&&!s.scoreEstime">Non analysé</span>
+                </td>
+                <td>
+                  <span class="oval oc-ok"  *ngIf="s.decision==='CONFORME'">Validé</span>
+                  <span class="oval oc-bad" *ngIf="s.decision==='FRAUDE'">Bloqué</span>
+                  <span class="na-txt" *ngIf="!s.decision">—</span>
+                </td>
+                <td>
+                  <button class="btn-tbl" (click)="$event.stopPropagation();analyseRow(s)">Analyser</button>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="pagination">
+          <button [disabled]="page===0" (click)="goPage(-1)">‹ Préc.</button>
+          <span>Page {{ page+1 }} / {{ totalPages }}</span>
+          <input type="number" class="page-inp" [(ngModel)]="pageInput"
+                 min="1" [max]="totalPages"
+                 (keyup.enter)="jumpPage()"
+                 [placeholder]="page+1"/>
+          <button class="btn-go" (click)="jumpPage()">→</button>
+          <button [disabled]="page>=totalPages-1" (click)="goPage(1)">Suiv. ›</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ══ HISTORIQUE ══════════════════════════════════════════════════════ -->
+    <section class="page" *ngIf="tab==='historique'">
+      <div class="card histo-page">
+        <div class="card-hd">
+          <div>
+            <h3>Historique des Actions</h3>
+            <p class="histo-sub">Décisions de {{ user.prenom }} {{ user.nom }}</p>
+          </div>
+          <div class="histo-counts">
+            <span class="oval oc-ok">{{ conformes }} Conformes</span>
+            <span class="oval oc-bad">{{ fraudes }} Fraudes</span>
+          </div>
+        </div>
+
+        <table class="histo-table" *ngIf="decisions.length>0">
+          <thead>
+            <tr>
+              <th>#</th><th>Date & Heure</th><th>Agent</th>
+              <th>N° Sinistre</th><th>Score</th><th>Statut final</th><th>Commentaire</th><th>Rapport</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let d of decisions;let i=index"
+                [class.htr-ok]="d.statut==='CONFORME'" [class.htr-ko]="d.statut==='FRAUDE'">
+              <td class="td-i">{{ decisions.length-i }}</td>
+              <td>
+                <div>{{ d.date|date:'dd/MM/yyyy' }}</div>
+                <div class="td-time">{{ d.date|date:'HH:mm:ss' }}</div>
+              </td>
+              <td>
+                <div class="agent-cell">
+                  <div class="ag-av">{{ userInitials }}</div>
+                  <span>{{ d.agent }}</span>
+                </div>
+              </td>
+              <td class="td-num">{{ d.num }}</td>
+              <td><span [style.color]="sc(d.score)" style="font-weight:700">{{ d.score|number:'1.0-0' }}%</span></td>
+              <td>
+                <span class="oval" [ngClass]="d.statut==='CONFORME'?'oc-ok':'oc-bad'">
+                  {{ d.statut==='CONFORME'?'Dossier Conforme':'Fraude Suspectée' }}
+                </span>
+              </td>
+              <td style="font-size:.72rem;color:var(--g500);max-width:180px;overflow:hidden;text-overflow:ellipsis">
+                {{ d.commentaire || '—' }}
+              </td>
+              <td>
+                <button class="btn-tbl" (click)="downloadDecisionPDF(d)" title="Télécharger rapport">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" stroke="currentColor" stroke-width="2"/>
+                    <polyline points="7,10 12,15 17,10" stroke="currentColor" stroke-width="2"/>
+                    <line x1="12" y1="15" x2="12" y2="3" stroke="currentColor" stroke-width="2"/>
+                  </svg>
+                  PDF
+                </button>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+
+        <div class="histo-log" *ngIf="decisions.length>0">
+          <div class="hl-title">Journal d'activité</div>
+          <div class="hl-row" *ngFor="let d of decisions">
+            <span [ngClass]="d.statut==='CONFORME'?'hl-ico-ok':'hl-ico-ko'">
+              {{ d.statut==='CONFORME'?'✓':'✕' }}
+            </span>
+            <span class="hl-txt">
+              Le <strong>{{ d.date|date:'dd/MM/yyyy à HH:mm' }}</strong> —
+              Agent <strong>{{ d.agent }}</strong> a marqué le sinistre
+              N°<strong>{{ d.num }}</strong> comme
+              <strong [style.color]="d.statut==='CONFORME'?'#16a34a':'#dc2626'">{{ d.statut }}</strong>
+              (Score : {{ d.score|number:'1.0-0' }}%)<span *ngIf="d.commentaire"> — <em>{{ d.commentaire }}</em></span>
+            </span>
+          </div>
+        </div>
+
+        <div class="empty-box" *ngIf="decisions.length===0">
+          <p>Aucune décision enregistrée</p>
+          <button class="btn-blue" (click)="tab='analyse'">Analyser un sinistre →</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ══ VERIAI ══════════════════════════════════════════════════════════ -->
+    <section class="page veriai-page" *ngIf="tab==='veriai'">
+      <div class="veriai-layout">
+
+        <!-- MASCOT LEFT -->
+        <div class="veriai-left">
+          <div class="vai-mascot-wrap">
+            <svg width="220" height="280" viewBox="0 0 220 280" fill="none"
+                 [style.transform]="'translateY(' + mascotFloat + 'px)'"
+                 style="transition:filter 0.3s;filter:drop-shadow(0 8px 24px rgba(0,71,204,0.35))">
+              <defs>
+                <linearGradient id="mBodyGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                  <stop offset="0%" stop-color="#1a5ce6"/>
+                  <stop offset="50%" stop-color="#002B80"/>
+                  <stop offset="100%" stop-color="#001450"/>
+                </linearGradient>
+                <linearGradient id="mHeadGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                  <stop offset="0%" stop-color="#2266e8"/>
+                  <stop offset="40%" stop-color="#0047CC"/>
+                  <stop offset="100%" stop-color="#001f6b"/>
+                </linearGradient>
+                <linearGradient id="mScreenGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+                  <stop offset="0%" stop-color="#0a1a4d"/>
+                  <stop offset="100%" stop-color="#000d2e"/>
+                </linearGradient>
+                <linearGradient id="mHL" x1="0%" y1="0%" x2="60%" y2="100%">
+                  <stop offset="0%" stop-color="white" stop-opacity="0.22"/>
+                  <stop offset="100%" stop-color="white" stop-opacity="0"/>
+                </linearGradient>
+              </defs>
+
+              <!-- Shadow -->
+              <ellipse cx="110" cy="272" [attr.rx]="mascotFloat > 0 ? 48 : 54" ry="7"
+                       fill="rgba(0,0,0,0.18)" style="transition:rx 0.5s ease"/>
+
+              <!-- Legs -->
+              <rect x="72"  y="220" width="26" height="42" rx="13" fill="url(#mBodyGrad)"/>
+              <rect x="66"  y="252" width="36" height="14" rx="7"  fill="#001450"/>
+              <rect x="122" y="220" width="26" height="42" rx="13" fill="url(#mBodyGrad)"/>
+              <rect x="118" y="252" width="36" height="14" rx="7"  fill="#001450"/>
+
+              <!-- Body -->
+              <rect x="58" y="148" width="104" height="82" rx="22" fill="url(#mBodyGrad)"/>
+              <rect x="58" y="148" width="104" height="82" rx="22" fill="url(#mHL)"/>
+              <rect x="58" y="148" width="104" height="82" rx="22" stroke="rgba(74,144,217,0.4)" stroke-width="1.5" fill="none"/>
+
+              <!-- Chest screen -->
+              <rect x="74" y="160" width="72" height="50" rx="10" fill="url(#mScreenGrad)"/>
+              <rect x="74" y="160" width="72" height="50" rx="10" stroke="rgba(74,144,217,0.5)" stroke-width="1" fill="none"/>
+
+              <!-- Screen: talking waveform -->
+              <ng-container *ngIf="vaiTyping">
+                <rect x="82"  [attr.y]="185 - mascotWaveH[0]/2" width="5" [attr.height]="mascotWaveH[0]" rx="2" fill="#4A90D9"  style="transition:height 0.18s,y 0.18s"/>
+                <rect x="92"  [attr.y]="185 - mascotWaveH[1]/2" width="5" [attr.height]="mascotWaveH[1]" rx="2" fill="#ED1C24"  style="transition:height 0.18s,y 0.18s"/>
+                <rect x="102" [attr.y]="185 - mascotWaveH[2]/2" width="5" [attr.height]="mascotWaveH[2]" rx="2" fill="#60aaff"  style="transition:height 0.18s,y 0.18s"/>
+                <rect x="112" [attr.y]="185 - mascotWaveH[3]/2" width="5" [attr.height]="mascotWaveH[3]" rx="2" fill="#4A90D9"  style="transition:height 0.18s,y 0.18s"/>
+                <rect x="122" [attr.y]="185 - mascotWaveH[4]/2" width="5" [attr.height]="mascotWaveH[4]" rx="2" fill="#ED1C24"  style="transition:height 0.18s,y 0.18s"/>
+                <rect x="132" [attr.y]="185 - mascotWaveH[5]/2" width="5" [attr.height]="mascotWaveH[5]" rx="2" fill="#60aaff"  style="transition:height 0.18s,y 0.18s"/>
+              </ng-container>
+
+              <!-- Screen: idle heartbeat -->
+              <ng-container *ngIf="!vaiTyping">
+                <polyline points="78,185 88,185 93,172 98,198 103,178 108,185 130,185 135,175 140,195 145,185"
+                          stroke="#4A90D9" stroke-width="2" fill="none" stroke-linecap="round"/>
+                <rect x="82" y="198" width="56" height="3" rx="1.5" fill="rgba(74,144,217,0.2)"/>
+                <rect x="82" y="198" [attr.width]="mascotScanW" height="3" rx="1.5"
+                      fill="rgba(74,144,217,0.8)" style="transition:width 0.6s ease"/>
+              </ng-container>
+
+              <!-- BH Badge -->
+              <circle cx="110" cy="224" r="9" fill="#ED1C24"/>
+              <text x="110" y="228" text-anchor="middle" font-size="7" font-weight="bold" fill="white" font-family="Arial">BH</text>
+
+              <!-- Left arm -->
+              <rect x="30" y="152" width="32" height="22" rx="11" fill="url(#mBodyGrad)"
+                    [attr.transform]="mascotWaving ? 'rotate(-25,46,163)' : 'rotate(0,46,163)'"
+                    style="transition:transform 0.4s ease"/>
+              <circle cx="32" cy="163" r="11" fill="#001450"
+                      [attr.transform]="mascotWaving ? 'rotate(-25,46,163)' : 'rotate(0,46,163)'"
+                      style="transition:transform 0.4s ease"/>
+              <circle cx="32" cy="163" r="7" fill="#0047CC"
+                      [attr.transform]="mascotWaving ? 'rotate(-25,46,163)' : 'rotate(0,46,163)'"
+                      style="transition:transform 0.4s ease"/>
+
+              <!-- Right arm -->
+              <rect x="158" y="152" width="32" height="22" rx="11" fill="url(#mBodyGrad)"
+                    [attr.transform]="mascotExcited ? 'rotate(25,174,163)' : 'rotate(0,174,163)'"
+                    style="transition:transform 0.4s ease"/>
+              <circle cx="188" cy="163" r="11" fill="#001450"
+                      [attr.transform]="mascotExcited ? 'rotate(25,174,163)' : 'rotate(0,174,163)'"
+                      style="transition:transform 0.4s ease"/>
+              <circle cx="188" cy="163" r="7" fill="#0047CC"
+                      [attr.transform]="mascotExcited ? 'rotate(25,174,163)' : 'rotate(0,174,163)'"
+                      style="transition:transform 0.4s ease"/>
+
+              <!-- Neck -->
+              <rect x="97"  y="136" width="26" height="18" rx="8"   fill="#001450"/>
+              <rect x="101" y="138" width="18" height="3"  rx="1.5" fill="rgba(74,144,217,0.3)"/>
+              <rect x="101" y="143" width="18" height="3"  rx="1.5" fill="rgba(74,144,217,0.3)"/>
+              <rect x="101" y="148" width="18" height="3"  rx="1.5" fill="rgba(74,144,217,0.3)"/>
+
+              <!-- Head -->
+              <rect x="52" y="60" width="116" height="84" rx="28" fill="url(#mHeadGrad)"/>
+              <rect x="52" y="60" width="116" height="84" rx="28" fill="url(#mHL)"/>
+              <rect x="52" y="60" width="116" height="84" rx="28" stroke="rgba(74,144,217,0.5)" stroke-width="2" fill="none"/>
+
+              <!-- Left Eye -->
+              <circle cx="86" cy="98" r="18" fill="#001450"/>
+              <circle cx="86" cy="98" r="18" stroke="rgba(74,144,217,0.6)" stroke-width="1.5" fill="none"/>
+              <ng-container *ngIf="!mascotBlink">
+                <circle cx="86" cy="98" r="12" fill="#0047CC"/>
+                <circle cx="86" cy="98" r="7"  fill="#0a1a60"/>
+                <circle cx="86" cy="98" r="4"  fill="#000420"/>
+                <circle cx="90" cy="94" r="2.5" fill="rgba(255,255,255,0.9)"/>
+                <circle cx="88" cy="100" r="1"  fill="rgba(255,255,255,0.4)"/>
+                <rect x="74" [attr.y]="mascotEyeScanY" width="24" height="1.5" rx="0.75"
+                      fill="#4A90D9" opacity="0.5" style="transition:y 0.6s ease"/>
+              </ng-container>
+              <ng-container *ngIf="mascotBlink">
+                <rect x="70" y="97" width="32" height="3" rx="1.5" fill="#4A90D9"/>
+              </ng-container>
+
+              <!-- Right Eye -->
+              <circle cx="134" cy="98" r="18" fill="#001450"/>
+              <circle cx="134" cy="98" r="18" stroke="rgba(74,144,217,0.6)" stroke-width="1.5" fill="none"/>
+              <ng-container *ngIf="!mascotBlink">
+                <circle cx="134" cy="98" r="12" fill="#0047CC"/>
+                <circle cx="134" cy="98" r="7"  fill="#0a1a60"/>
+                <circle cx="134" cy="98" r="4"  fill="#000420"/>
+                <circle cx="138" cy="94" r="2.5" fill="rgba(255,255,255,0.9)"/>
+                <circle cx="136" cy="100" r="1"  fill="rgba(255,255,255,0.4)"/>
+                <rect x="122" [attr.y]="mascotEyeScanY" width="24" height="1.5" rx="0.75"
+                      fill="#4A90D9" opacity="0.5" style="transition:y 0.6s ease"/>
+              </ng-container>
+              <ng-container *ngIf="mascotBlink">
+                <rect x="118" y="97" width="32" height="3" rx="1.5" fill="#4A90D9"/>
+              </ng-container>
+
+              <!-- Mouth -->
+              <ng-container *ngIf="!vaiTyping">
+                <path d="M 94 122 Q 110 134 126 122" stroke="#4A90D9" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+              </ng-container>
+              <ng-container *ngIf="vaiTyping">
+                <ellipse cx="110" cy="124" rx="14" [attr.ry]="mascotMouth ? 9 : 4"
+                         fill="#001450" style="transition:ry 0.15s ease"/>
+              </ng-container>
+
+              <!-- Blush -->
+              <circle cx="68"  cy="112" r="9" fill="#ED1C24" opacity="0.18"/>
+              <circle cx="152" cy="112" r="9" fill="#ED1C24" opacity="0.18"/>
+
+              <!-- Antenna -->
+              <line x1="110" y1="60" x2="110" y2="32" stroke="rgba(74,144,217,0.6)" stroke-width="3" stroke-linecap="round"/>
+              <circle cx="110" cy="26" r="7" fill="#ED1C24"/>
+              <circle cx="110" cy="26" [attr.r]="mascotAntenna ? 13 : 7"
+                      fill="#ED1C24" opacity="0.25" style="transition:r 0.7s ease"/>
+              <circle cx="107" cy="23" r="2.5" fill="rgba(255,255,255,0.7)"/>
+
+              <!-- Ears -->
+              <rect x="44"  y="78" width="14" height="28" rx="7" fill="#001450"/>
+              <rect x="47"  y="83" width="8"  height="4"  rx="2" fill="#4A90D9" opacity="0.4"/>
+              <rect x="47"  y="91" width="8"  height="4"  rx="2" fill="#ED1C24" opacity="0.4"/>
+              <rect x="47"  y="99" width="8"  height="4"  rx="2" fill="#4A90D9" opacity="0.4"/>
+              <rect x="162" y="78" width="14" height="28" rx="7" fill="#001450"/>
+              <rect x="165" y="83" width="8"  height="4"  rx="2" fill="#4A90D9" opacity="0.4"/>
+              <rect x="165" y="91" width="8"  height="4"  rx="2" fill="#ED1C24" opacity="0.4"/>
+              <rect x="165" y="99" width="8"  height="4"  rx="2" fill="#4A90D9" opacity="0.4"/>
+            </svg>
+
+            <div class="vai-name">VeriAI</div>
+            <div class="vai-sub">Assistant Anti-Fraude BH Assurance</div>
+            <div class="vai-status">
+              <span class="vai-dot"></span> En ligne
+            </div>
+          </div>
+
+          <!-- Suggestions rapides -->
+          <div class="vai-quick">
+            <p class="vai-quick-title">Questions rapides</p>
+            <button class="vai-sug" (click)="vaiSend('Quels sont les sinistres les plus suspects aujourd\'hui ?')">
+              🔍 Sinistres suspects
+            </button>
+            <button class="vai-sug" (click)="vaiSend('Explique-moi comment fonctionne le score de risque ?')">
+              📊 Score de risque
+            </button>
+            <button class="vai-sug" (click)="vaiSend('Quels sont les signaux d\'alerte les plus fréquents ?')">
+              🚨 Signaux d'alerte
+            </button>
+            <button class="vai-sug" (click)="vaiSend('Donne-moi un résumé de l\'activité d\'aujourd\'hui')">
+              📋 Résumé activité
+            </button>
+          </div>
+        </div>
+
+        <!-- CHATBOX RIGHT -->
+        <div class="veriai-right">
+          <div class="vai-chat">
+
+            <!-- Header -->
+            <div class="vai-chat-hd">
+              <div class="vai-chat-hd-l">
+                <div class="vai-chat-av">
+                  <svg width="18" height="18" viewBox="0 0 44 44" fill="none">
+                    <rect x="8" y="12" width="28" height="22" rx="9" fill="white" opacity="0.2"/>
+                    <circle cx="17" cy="22" r="4" fill="white"/>
+                    <circle cx="27" cy="22" r="4" fill="white"/>
+                    <path d="M17 28 Q22 32 27 28" stroke="white" stroke-width="1.5" fill="none" stroke-linecap="round"/>
+                  </svg>
+                </div>
+                <div>
+                  <div class="vai-chat-name">VeriAI</div>
+                  <div class="vai-chat-sub">
+                    <span class="vai-dot"></span> Prêt à analyser
+                  </div>
+                </div>
+              </div>
+              <button class="vai-clear" (click)="vaiMsgs=[]">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+                  <polyline points="3,6 5,6 21,6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                  <path d="M19 6l-1 14H6L5 6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                  <path d="M10 11v6M14 11v6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                </svg>
+                Effacer
+              </button>
+            </div>
+
+            <!-- Messages -->
+            <div class="vai-msgs" #vaiScroll>
+              <!-- Welcome -->
+              <div class="vai-msg vai-msg-bot">
+                <div class="vai-msg-av">
+                  <svg width="22" height="22" viewBox="0 0 44 44" fill="none">
+                    <rect x="8" y="12" width="28" height="22" rx="9" fill="#2266e8"/>
+                    <circle cx="17" cy="22" r="3.5" fill="#4A90D9"/>
+                    <circle cx="17" cy="22" r="2"   fill="#000d2e"/>
+                    <circle cx="18.2" cy="20.8" r="1" fill="rgba(255,255,255,0.95)"/>
+                    <circle cx="27" cy="22" r="3.5" fill="#4A90D9"/>
+                    <circle cx="27" cy="22" r="2"   fill="#000d2e"/>
+                    <circle cx="28.2" cy="20.8" r="1" fill="rgba(255,255,255,0.95)"/>
+                    <path d="M17 29 Q22 33 27 29" stroke="#4A90D9" stroke-width="1.5" fill="none" stroke-linecap="round"/>
+                    <line x1="22" y1="12" x2="22" y2="7" stroke="rgba(74,144,217,0.7)" stroke-width="1.5" stroke-linecap="round"/>
+                    <circle cx="22" cy="6" r="2.5" fill="#ED1C24"/>
+                  </svg>
+                </div>
+                <div class="vai-bbl vai-bbl-bot">
+                  Bonjour <strong>{{ user.prenom }}</strong> 👋 Je suis <strong>VeriAI</strong>,
+                  votre assistant anti-fraude BH Assurance.<br><br>
+                  Posez-moi n'importe quelle question sur un sinistre, un score de risque,
+                  ou les statistiques de fraude. Vous pouvez aussi me donner un numéro
+                  de sinistre directement !
+                </div>
+              </div>
+
+              <!-- Dynamic messages -->
+              <div class="vai-msg" *ngFor="let m of vaiMsgs"
+                   [ngClass]="m.role==='user' ? 'vai-msg-user' : 'vai-msg-bot'">
+                <div class="vai-msg-av" *ngIf="m.role==='assistant'">
+                  <svg width="22" height="22" viewBox="0 0 44 44" fill="none">
+                    <rect x="8" y="12" width="28" height="22" rx="9" fill="#2266e8"/>
+                    <circle cx="17" cy="22" r="3.5" fill="#4A90D9"/>
+                    <circle cx="17" cy="22" r="2"   fill="#000d2e"/>
+                    <circle cx="18.2" cy="20.8" r="1" fill="rgba(255,255,255,0.95)"/>
+                    <circle cx="27" cy="22" r="3.5" fill="#4A90D9"/>
+                    <circle cx="27" cy="22" r="2"   fill="#000d2e"/>
+                    <circle cx="28.2" cy="20.8" r="1" fill="rgba(255,255,255,0.95)"/>
+                    <path d="M17 29 Q22 33 27 29" stroke="#4A90D9" stroke-width="1.5" fill="none" stroke-linecap="round"/>
+                    <line x1="22" y1="12" x2="22" y2="7" stroke="rgba(74,144,217,0.7)" stroke-width="1.5" stroke-linecap="round"/>
+                    <circle cx="22" cy="6" r="2.5" fill="#ED1C24"/>
+                  </svg>
+                </div>
+                <div class="vai-bbl"
+                     [ngClass]="m.role==='user' ? 'vai-bbl-user' : 'vai-bbl-bot'">
+                  <div [innerHTML]="fmt(m.content)"></div>
+                  <span class="vai-time">{{ m.timestamp | date:'HH:mm' }}</span>
+                </div>
+                <div class="vai-uav" *ngIf="m.role==='user'">{{ userInitials }}</div>
+              </div>
+
+              <!-- Typing -->
+              <div class="vai-msg vai-msg-bot" *ngIf="vaiTyping">
+                <div class="vai-msg-av">
+                  <svg width="22" height="22" viewBox="0 0 44 44" fill="none">
+                    <rect x="8" y="12" width="28" height="22" rx="9" fill="#2266e8"/>
+                    <circle cx="17" cy="22" r="3.5" fill="#4A90D9"/>
+                    <circle cx="17" cy="22" r="2"   fill="#000d2e"/>
+                    <circle cx="18.2" cy="20.8" r="1" fill="rgba(255,255,255,0.95)"/>
+                    <circle cx="27" cy="22" r="3.5" fill="#4A90D9"/>
+                    <circle cx="27" cy="22" r="2"   fill="#000d2e"/>
+                    <circle cx="28.2" cy="20.8" r="1" fill="rgba(255,255,255,0.95)"/>
+                    <path d="M17 29 Q22 33 27 29" stroke="#4A90D9" stroke-width="1.5" fill="none" stroke-linecap="round"/>
+                    <line x1="22" y1="12" x2="22" y2="7" stroke="rgba(74,144,217,0.7)" stroke-width="1.5" stroke-linecap="round"/>
+                    <circle cx="22" cy="6" r="2.5" fill="#ED1C24"/>
+                  </svg>
+                </div>
+                <div class="vai-bbl vai-bbl-bot m-typing">
+                  <span></span><span></span><span></span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Input -->
+            <div class="vai-inp-wrap">
+              <div class="vai-inp-box">
+                <textarea class="vai-ta"
+                          [(ngModel)]="vaiInput"
+                          placeholder="Posez une question ou entrez un numéro de sinistre..."
+                          (keydown.enter)="vaiSendMsg($event)"
+                          rows="1"></textarea>
+                <button class="vai-send" (click)="vaiSendMsg(null)"
+                        [disabled]="!vaiInput.trim() || vaiTyping">
+                  <svg viewBox="0 0 24 24" fill="none" width="16" height="16">
+                    <path d="M22 2L11 13M22 2L15 22L11 13M22 2L2 9L11 13"
+                          stroke="white" stroke-width="2"
+                          stroke-linecap="round" stroke-linejoin="round"/>
+                  </svg>
+                </button>
+              </div>
+              <p class="vai-hint">Appuyez sur Entrée pour envoyer · Shift+Entrée pour nouvelle ligne</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- ══ FAB CHAT ═══════════════════════════════════════════════════════════ -->
+  <button class="fab" (click)="chatOpen=!chatOpen" [class.fab-on]="chatOpen">
+    <span *ngIf="!chatOpen">
+      <svg width="38" height="38" viewBox="0 0 44 44" fill="none">
+        <rect x="8" y="12" width="28" height="22" rx="9" fill="url(#fabHead2)"/>
+        <rect x="8" y="12" width="28" height="22" rx="9" fill="url(#fabHL2)"/>
+        <circle cx="17" cy="22" r="5" fill="#001450"/>
+        <circle cx="17" cy="22" r="3.5" fill="#4A90D9"/>
+        <circle cx="17" cy="22" r="2" fill="#000d2e"/>
+        <circle cx="18.2" cy="20.8" r="1" fill="rgba(255,255,255,0.95)"/>
+        <circle cx="27" cy="22" r="5" fill="#001450"/>
+        <circle cx="27" cy="22" r="3.5" fill="#4A90D9"/>
+        <circle cx="27" cy="22" r="2" fill="#000d2e"/>
+        <circle cx="28.2" cy="20.8" r="1" fill="rgba(255,255,255,0.95)"/>
+        <path d="M17 29 Q22 33 27 29" stroke="#4A90D9" stroke-width="1.5" fill="none" stroke-linecap="round"/>
+        <line x1="22" y1="12" x2="22" y2="7" stroke="rgba(74,144,217,0.7)" stroke-width="1.5" stroke-linecap="round"/>
+        <circle cx="22" cy="6" r="2.5" fill="#ED1C24"/>
+        <circle cx="21.2" cy="5.2" r="0.8" fill="rgba(255,255,255,0.8)"/>
+        <rect x="5" y="18" width="4" height="8" rx="2" fill="#001450"/>
+        <rect x="35" y="18" width="4" height="8" rx="2" fill="#001450"/>
+        <circle cx="11" cy="26" r="3" fill="#ED1C24" opacity="0.2"/>
+        <circle cx="33" cy="26" r="3" fill="#ED1C24" opacity="0.2"/>
+        <defs>
+          <linearGradient id="fabHead2" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stop-color="#2266e8"/>
+            <stop offset="100%" stop-color="#001f6b"/>
+          </linearGradient>
+          <linearGradient id="fabHL2" x1="0%" y1="0%" x2="50%" y2="100%">
+            <stop offset="0%" stop-color="white" stop-opacity="0.2"/>
+            <stop offset="100%" stop-color="white" stop-opacity="0"/>
+          </linearGradient>
+        </defs>
+      </svg>
+    </span>
+    <span *ngIf="chatOpen">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+        <line x1="18" y1="6" x2="6" y2="18" stroke="white" stroke-width="2" stroke-linecap="round"/>
+        <line x1="6" y1="6" x2="18" y2="18" stroke="white" stroke-width="2" stroke-linecap="round"/>
+      </svg>
+    </span>
+    <span class="fab-pulse" *ngIf="resultat&&!chatOpen"></span>
+  </button>
+
+  <!-- ══ MODAL CHAT (Style ChatGPT) ══════════════════════════════════════════ -->
+  <div class="modal-overlay" *ngIf="chatOpen" (click)="chatOpen=false">
+    <div class="modal" (click)="$event.stopPropagation()">
+
+      <!-- Modal header -->
+      <div class="mhd">
+        <div class="mhd-l">
+          <div class="mhd-av">
+            <svg width="32" height="32" viewBox="0 0 44 44" fill="none">
+              <!-- Head -->
+              <rect x="8" y="12" width="28" height="22" rx="9" fill="url(#mhdHead)"/>
+              <rect x="8" y="12" width="28" height="22" rx="9" fill="url(#mhdHL)"/>
+              <!-- Eyes -->
+              <circle cx="17" cy="22" r="5" fill="#001450"/>
+              <circle cx="17" cy="22" r="3.5" fill="#4A90D9"/>
+              <circle cx="17" cy="22" r="2" fill="#000d2e"/>
+              <circle cx="18.2" cy="20.8" r="1" fill="rgba(255,255,255,0.95)"/>
+              <circle cx="27" cy="22" r="5" fill="#001450"/>
+              <circle cx="27" cy="22" r="3.5" fill="#4A90D9"/>
+              <circle cx="27" cy="22" r="2" fill="#000d2e"/>
+              <circle cx="28.2" cy="20.8" r="1" fill="rgba(255,255,255,0.95)"/>
+              <!-- Smile -->
+              <path d="M17 29 Q22 33 27 29" stroke="#4A90D9" stroke-width="1.5" fill="none" stroke-linecap="round"/>
+              <!-- Antenna -->
+              <line x1="22" y1="12" x2="22" y2="7" stroke="rgba(74,144,217,0.7)" stroke-width="1.5" stroke-linecap="round"/>
+              <circle cx="22" cy="6" r="2.5" fill="#ED1C24"/>
+              <circle cx="21.2" cy="5.2" r="0.8" fill="rgba(255,255,255,0.8)"/>
+              <!-- Ears -->
+              <rect x="5" y="18" width="4" height="8" rx="2" fill="#001450"/>
+              <rect x="35" y="18" width="4" height="8" rx="2" fill="#001450"/>
+              <!-- Blush -->
+              <circle cx="11" cy="26" r="3" fill="#ED1C24" opacity="0.2"/>
+              <circle cx="33" cy="26" r="3" fill="#ED1C24" opacity="0.2"/>
+              <defs>
+                <linearGradient id="mhdHead" x1="0%" y1="0%" x2="100%" y2="100%">
+                  <stop offset="0%" stop-color="#2266e8"/>
+                  <stop offset="100%" stop-color="#001f6b"/>
+                </linearGradient>
+                <linearGradient id="mhdHL" x1="0%" y1="0%" x2="50%" y2="100%">
+                  <stop offset="0%" stop-color="white" stop-opacity="0.2"/>
+                  <stop offset="100%" stop-color="white" stop-opacity="0"/>
+                </linearGradient>
+              </defs>
+            </svg>
+          </div>
+          <div>
+            <div class="mhd-name">VeriAI</div>
+            <div class="mhd-sub">
+              <span class="mhd-dot"></span>
+              {{ ariaSubtitle() }}
+            </div>
+          </div>
+        </div>
+        <div class="mhd-r">
+          <span class="oval" [ngClass]="oc(resultat?.score_risque||0)" *ngIf="resultat">
+            {{ ol(resultat.score_risque) }}
+          </span>
+          <button class="mhd-close" (click)="chatOpen=false">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+              <line x1="18" y1="6" x2="6" y2="18" stroke="#64748b" stroke-width="2" stroke-linecap="round"/>
+              <line x1="6" y1="6" x2="18" y2="18" stroke="#64748b" stroke-width="2" stroke-linecap="round"/>
+            </svg>
+          </button>
+        </div>
+      </div>
+
+      <!-- Messages -->
+      <div class="m-msgs" #scrollRef>
+        <!-- Welcome -->
+        <div class="m-msg aria-m">
+          <div class="m-av">
+            <svg width="22" height="22" viewBox="0 0 44 44" fill="none">
+              <rect x="8" y="12" width="28" height="22" rx="9" fill="#2266e8"/>
+              <circle cx="17" cy="22" r="3.5" fill="#4A90D9"/>
+              <circle cx="17" cy="22" r="2"   fill="#000d2e"/>
+              <circle cx="18.2" cy="20.8" r="1" fill="rgba(255,255,255,0.95)"/>
+              <circle cx="27" cy="22" r="3.5" fill="#4A90D9"/>
+              <circle cx="27" cy="22" r="2"   fill="#000d2e"/>
+              <circle cx="28.2" cy="20.8" r="1" fill="rgba(255,255,255,0.95)"/>
+              <path d="M17 29 Q22 33 27 29" stroke="#4A90D9" stroke-width="1.5" fill="none" stroke-linecap="round"/>
+              <line x1="22" y1="12" x2="22" y2="7" stroke="rgba(74,144,217,0.7)" stroke-width="1.5" stroke-linecap="round"/>
+              <circle cx="22" cy="6" r="2.5" fill="#ED1C24"/>
+            </svg>
+          </div>
+          <div class="m-bbl a-bbl">
+            <span *ngIf="resultat">
+              Dossier <strong>{{ resultat.num_sinistre }}</strong> — score
+              <strong [style.color]="sc(resultat.score_risque)">{{ resultat.score_risque|number:'1.0-0' }}%</strong>.
+              Posez vos questions.
+            </span>
+            <span *ngIf="!resultat && !apiOk" style="color:#CC2229">
+              FastAPI est hors ligne. Lancez <strong>DEMARRER.bat</strong> pour démarrer tous les services.
+            </span>
+            <span *ngIf="!resultat && apiOk">
+              Entrez un numéro de sinistre dans l'onglet <strong>Analyse</strong> pour activer VeriAI.
+            </span>
+            <span class="m-time">maintenant</span>
+          </div>
+        </div>
+
+        <!-- Conversation -->
+        <div class="m-msg" *ngFor="let m of msgs"
+             [ngClass]="m.role==='user'?'user-m':'aria-m'">
+          <div class="m-av" *ngIf="m.role==='assistant'">
+            <svg width="22" height="22" viewBox="0 0 44 44" fill="none">
+              <rect x="8" y="12" width="28" height="22" rx="9" fill="#2266e8"/>
+              <circle cx="17" cy="22" r="3.5" fill="#4A90D9"/>
+              <circle cx="17" cy="22" r="2"   fill="#000d2e"/>
+              <circle cx="18.2" cy="20.8" r="1" fill="rgba(255,255,255,0.95)"/>
+              <circle cx="27" cy="22" r="3.5" fill="#4A90D9"/>
+              <circle cx="27" cy="22" r="2"   fill="#000d2e"/>
+              <circle cx="28.2" cy="20.8" r="1" fill="rgba(255,255,255,0.95)"/>
+              <path d="M17 29 Q22 33 27 29" stroke="#4A90D9" stroke-width="1.5" fill="none" stroke-linecap="round"/>
+              <line x1="22" y1="12" x2="22" y2="7" stroke="rgba(74,144,217,0.7)" stroke-width="1.5" stroke-linecap="round"/>
+              <circle cx="22" cy="6" r="2.5" fill="#ED1C24"/>
+            </svg>
+          </div>
+          <div class="m-bbl" [ngClass]="m.role==='user'?'u-bbl':'a-bbl'">
+            <div [innerHTML]="fmt(m.content)"></div>
+            <span class="m-time">{{ m.timestamp|date:'HH:mm' }}</span>
+          </div>
+          <div class="m-uav" *ngIf="m.role==='user'">{{ userInitials }}</div>
+        </div>
+
+        <!-- Typing -->
+        <div class="m-msg aria-m" *ngIf="typing">
+          <div class="m-av">
+            <svg width="22" height="22" viewBox="0 0 44 44" fill="none">
+              <rect x="8" y="12" width="28" height="22" rx="9" fill="#2266e8"/>
+              <circle cx="17" cy="22" r="3.5" fill="#4A90D9"/>
+              <circle cx="17" cy="22" r="2"   fill="#000d2e"/>
+              <circle cx="18.2" cy="20.8" r="1" fill="rgba(255,255,255,0.95)"/>
+              <circle cx="27" cy="22" r="3.5" fill="#4A90D9"/>
+              <circle cx="27" cy="22" r="2"   fill="#000d2e"/>
+              <circle cx="28.2" cy="20.8" r="1" fill="rgba(255,255,255,0.95)"/>
+              <path d="M17 29 Q22 33 27 29" stroke="#4A90D9" stroke-width="1.5" fill="none" stroke-linecap="round"/>
+              <line x1="22" y1="12" x2="22" y2="7" stroke="rgba(74,144,217,0.7)" stroke-width="1.5" stroke-linecap="round"/>
+              <circle cx="22" cy="6" r="2.5" fill="#ED1C24"/>
+            </svg>
+          </div>
+          <div class="m-bbl a-bbl m-typing">
+            <span></span><span></span><span></span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Suggestions -->
+      <div class="m-sugs" *ngIf="resultat&&msgs.length===0">
+        <button class="m-sug" *ngFor="let s of sugs" (click)="sendSug(s)">{{ s }}</button>
+      </div>
+
+      <!-- Input -->
+      <div class="m-inp-wrap">
+        <div class="m-inp-box" [class.focused]="inpFocus">
+          <textarea class="m-ta" [(ngModel)]="msgInp"
+                    [disabled]="!resultat||typing"
+                    placeholder="Posez une question sur le dossier..."
+                    (keydown.enter)="sendMsg($event)"
+                    (focus)="inpFocus=true" (blur)="inpFocus=false"
+                    rows="1"></textarea>
+          <button class="m-send" (click)="sendMsg(null)"
+                  [disabled]="!msgInp.trim()||!resultat||typing">
+            <svg viewBox="0 0 24 24" fill="none" width="17" height="17">
+              <path d="M22 2L11 13M22 2L15 22L11 13M22 2L2 9L11 13"
+                    stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>

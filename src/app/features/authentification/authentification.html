@@ -1,0 +1,63 @@
+<div class="login-container">
+  <div class="login-wrapper">
+    <div class="glass-card animate-in">
+      <h3 style="color: white; margin-bottom: 20px; font-weight: 800; letter-spacing: 2px;">CONNEXION</h3>
+
+      <form [formGroup]="loginForm" (ngSubmit)="onSubmit()">
+        <div class="input-group">
+          <i class="fas fa-user"></i>
+          <input type="text" formControlName="username" placeholder="Username" autocomplete="off">
+
+        </div>
+
+        <div class="input-group">
+          <i class="fas fa-lock"></i>
+          <input type="password" formControlName="password" placeholder="password" autocomplete="password">
+
+        </div>
+
+        <div class="input-group">
+          <i class="fas fa-user-tag"></i>
+          <select formControlName="role" name="role" required>
+            <option value="ADMINISTRATEUR">ADMINISTRATEUR</option>
+            <option value="AGENT_ANTI_FRAUDE">AGENT_ANTI_FRAUDE</option>
+          </select>
+        </div>
+
+        <button type="submit" class="btn-3d">ACCÉDER</button>
+      <!-- partie-->
+        <div class="forgot-container">
+          <span (click)="openForgotModal()" class="forgot-link">Mot de passe oublié ?</span>
+        </div>
+
+        <div class="error-message" *ngIf="loginError">
+          <i class="fas fa-exclamation-circle"></i> {{ loginError }}
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" *ngIf="showForgotModal" (click)="closeForgotModal()"></div>
+<div class="modal-box animate-in" *ngIf="showForgotModal">
+  <div class="modal-content forgot-design">
+    <div class="modal-header">
+      <h3>Récupération</h3>
+      <button class="close-btn" (click)="closeForgotModal()">&times;</button>
+    </div>
+    <div class="modal-body">
+      <div class="forgot-icon-box">
+        <i class="fas fa-paper-plane"></i>
+      </div>
+      <p class="instruction-text">Saisissez votre email BH pour recevoir le lien de réinitialisation.</p>
+      <div class="input-group-modal">
+        <label>Email Professionnel</label>
+        <input type="email" [(ngModel)]="forgotEmail" placeholder="nom@bh.com.tn">
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-cancel" (click)="closeForgotModal()">Annuler</button>
+      <button class="btn-send-bh" (click)="sendResetLink()">Envoyer</button>
+    </div>
+  </div>
+</div>

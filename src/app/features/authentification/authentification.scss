@@ -1,0 +1,182 @@
+/* --- LOGIN CONTAINER & BACKGROUND --- */
+.login-container {
+  height: 100vh;
+  width: 100vw;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 10%;
+  background: linear-gradient(rgba(0, 0, 0, 0.1), rgba(0, 0, 0, 0.4)),
+              url('../../../assets/fond-authentification.png') no-repeat center center;
+  background-size: cover;
+  position: fixed;
+  top: 0;
+  left: 0;
+  overflow: hidden;
+  z-index: 1;
+
+  .login-wrapper {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    width: 380px;
+    z-index: 10;
+    transform: translateY(-40px);
+    animation: fadeInRight 0.8s ease-out;
+  }
+
+  /* --- EL CADRE FLOU (Glassmorphism) --- */
+  .glass-card {
+    width: 100%;
+    background: rgba(255, 255, 255, 0.08) !important;
+    backdrop-filter: blur(15px) saturate(150%) !important;
+    -webkit-backdrop-filter: blur(15px) saturate(150%);
+    border: 1px solid rgba(255, 255, 255, 0.2) !important;
+    border-radius: 25px;
+    padding: 40px 30px;
+    box-shadow: -10px 20px 40px rgba(0, 0, 0, 0.3);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+
+  h3 {
+    color: white;
+    font-size: 1.5rem;
+    margin-bottom: 30px;
+    letter-spacing: 3px;
+    font-weight: 800;
+    text-transform: uppercase;
+    width: 100%;
+    text-align: center;
+  }
+
+  .input-group {
+    width: 100%;
+    margin-bottom: 15px;
+    display: flex;
+
+    input, select {
+      width: 100%;
+      height: 48px;
+      padding: 0 15px;
+      background: rgba(255, 255, 255, 0.12) !important;
+      border: 1px solid rgba(255, 255, 255, 0.2) !important;
+      color: white !important;
+      outline: none;
+      border-radius: 10px;
+      font-size: 0.95rem;
+      text-align: center;
+
+      &::placeholder { color: rgba(255, 255, 255, 0.6); }
+      &:focus {
+        background: rgba(255, 255, 255, 0.2) !important;
+        border-color: #e31e24 !important;
+      }
+      option { background-color: #0b1a31; color: white; }
+    }
+  }
+
+  .btn-3d {
+    width: 100%;
+    height: 50px;
+    background: #e31e24;
+    color: white;
+    border: none;
+    border-radius: 10px;
+    font-weight: bold;
+    font-size: 1rem;
+    cursor: pointer;
+    margin-top: 10px;
+    transition: 0.3s;
+    box-shadow: 0 6px 15px rgba(227, 30, 36, 0.3);
+
+    &:hover {
+      background: #b2181d;
+      transform: translateY(-2px);
+    }
+  }
+
+  /* --- MOT DE PASSE OUBLIÉ LINK --- */
+  .forgot-container {
+    margin-top: 20px;
+    text-align: center;
+    
+    .forgot-link {
+      color: rgba(255, 255, 255, 0.7);
+      font-size: 0.85rem;
+      cursor: pointer;
+      transition: 0.3s;
+      text-decoration: none;
+      border-bottom: 1px solid transparent;
+
+      &:hover {
+        color: white;
+        border-bottom: 1px solid white;
+      }
+    }
+  }
+}
+
+/* --- MODAL FORGOT PASSWORD (Indépendante) --- */
+.modal-overlay {
+  position: fixed;
+  top: 0; left: 0;
+  width: 100%; height: 100%;
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(5px);
+  z-index: 9998;
+}
+
+.modal-box {
+  position: fixed;
+  top: 50%; left: 50%;
+  transform: translate(-50%, -50%);
+  width: 380px;
+  background: white;
+  border-radius: 25px;
+  padding: 30px;
+  z-index: 9999;
+  box-shadow: 0 20px 40px rgba(0,0,0,0.4);
+}
+
+.forgot-design {
+  .modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+    h3 { color: #004a99; margin: 0; font-size: 1.3rem; }
+    .close-btn { background: none; border: none; font-size: 1.5rem; cursor: pointer; color: #94a3b8; }
+  }
+
+  .forgot-icon-box {
+    text-align: center; font-size: 3.5rem; color: #004a99; margin-bottom: 15px;
+    animation: float 3s ease-in-out infinite;
+  }
+
+  .instruction-text { text-align: center; color: #64748b; font-size: 0.9rem; margin-bottom: 20px; }
+
+  .input-group-modal {
+    display: flex; flex-direction: column; gap: 8px;
+    label { font-weight: bold; color: #333; font-size: 0.85rem; }
+    input {
+      padding: 12px; border: 2px solid #eee; border-radius: 10px; color: #333 !important;
+      &:focus { border-color: #004a99; outline: none; }
+    }
+  }
+}
+
+.modal-footer {
+  display: flex; gap: 10px; margin-top: 25px;
+  button { flex: 1; padding: 12px; border-radius: 12px; cursor: pointer; font-weight: 700; transition: 0.3s; border: none; }
+  .btn-cancel { background: #f1f5f9; color: #64748b; &:hover { background: #e2e8f0; } }
+  .btn-send-bh { 
+    background: #004a99; color: white;
+    &:hover { background: #003670; transform: translateY(-2px); box-shadow: 0 5px 15px rgba(0,74,153,0.3); }
+  }
+}
+
+/* --- ANIMATIONS --- */
+@keyframes fadeInRight { from { opacity: 0; transform: translateX(30px); } to { opacity: 1; transform: translateX(0); } }
+@keyframes float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-10px); } }
