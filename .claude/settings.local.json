@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(curl -s http://localhost:8000/health)",
+      "Bash(del \"c:\\\\Users\\\\AMOULA\\\\OneDrive\\\\Bureau\\\\pfe ghalia\\\\backend-bh-guard\\\\src\\\\main\\\\java\\\\com\\\\bhguard\\\\controllers\\\\AgentController.java\")",
+      "Bash(curl -s \"http://localhost:8081/api/agent/dashboard?username=test\")",
+      "Bash(python -m json.tool)"
+    ]
+  }
+}
