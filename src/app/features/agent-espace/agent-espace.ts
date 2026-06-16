@@ -138,6 +138,10 @@ export class AgentEspaceComponent implements OnInit, OnDestroy, AfterViewChecked
   inpFocus : boolean  = false;
   vaiStats : any      = null;
 
+  // ── Reconnaissance Vocale ─────────────────────────────────────────────────
+  isListening  : boolean = false;
+  private recognition: any = null;
+
   // ── VeriAI Mascot Animations ──────────────────────────────────────────────
   mascotBlink    = false;
   mascotWaving   = false;
@@ -221,6 +225,7 @@ export class AgentEspaceComponent implements OnInit, OnDestroy, AfterViewChecked
       },
       error: (err) => console.error('[BHGuard] /gouvernorats erreur:', err?.status, err?.message)
     });
+    this.initSpeech();
   }
 
   ngOnDestroy(): void {
@@ -2002,6 +2007,7 @@ export class AgentEspaceComponent implements OnInit, OnDestroy, AfterViewChecked
       next: (r) => {
         this.vaiMsgs.push({ role: 'assistant', content: r.reponse, timestamp: new Date() });
         this.vaiTyping = false;
+        this.speakResponse(r.reponse);
         this.cdr.detectChanges();
       },
       error: () => {
@@ -2014,5 +2020,69 @@ export class AgentEspaceComponent implements OnInit, OnDestroy, AfterViewChecked
         this.cdr.detectChanges();
       }
     });
+  }
+
+  // ── Reconnaissance Vocale ─────────────────────────────────────────────────
+  initSpeech(): void {
+    const SpeechRecognition = (window as any).SpeechRecognition
+                           || (window as any).webkitSpeechRecognition;
+    if (!SpeechRecognition) { console.warn('Speech API non supportée'); return; }
+
+    this.recognition                 = new SpeechRecognition();
+    this.recognition.lang            = 'fr-FR';
+    this.recognition.interimResults  = true;
+    this.recognition.continuous      = false;
+
+    this.recognition.onresult = (event: any) => {
+      let interim = '', final = '';
+      for (let i = event.resultIndex; i < event.results.length; i++) {
+        const t = event.results[i][0].transcript;
+        if (event.results[i].isFinal) final += t; else interim += t;
+      }
+      this.vaiInput = final || interim;
+      this.cdr.detectChanges();
+    };
+
+    this.recognition.onend = () => {
+      this.isListening = false;
+      this.cdr.detectChanges();
+      if (this.vaiInput.trim()) setTimeout(() => this.vaiSendMsg(null), 300);
+    };
+
+    this.recognition.onerror = (event: any) => {
+      console.error('Speech error:', event.error);
+      this.isListening = false;
+      this.cdr.detectChanges();
+    };
+  }
+
+  toggleMic(): void {
+    if (!this.recognition) this.initSpeech();
+    if (!this.recognition) return;
+    if (this.isListening) {
+      this.recognition.stop();
+      this.isListening = false;
+    } else {
+      this.vaiInput    = '';
+      this.isListening = true;
+      this.recognition.start();
+    }
+    this.cdr.detectChanges();
+  }
+
+  speakResponse(text: string): void {
+    const synth = window.speechSynthesis;
+    if (!synth) return;
+    synth.cancel();
+    const utterance    = new SpeechSynthesisUtterance(
+      (text || '')
+        .replace(/\*\*(.*?)\*\*/g, '$1')
+        .replace(/#{1,6}\s/g, '')
+        .replace(/<[^>]*>/g, '')
+    );
+    utterance.lang  = 'fr-FR';
+    utterance.rate  = 1.0;
+    utterance.pitch = 1.0;
+    synth.speak(utterance);
   }
 }

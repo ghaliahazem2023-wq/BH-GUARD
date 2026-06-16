@@ -25,6 +25,10 @@ public class User {
 
     private String dateCreation;
 
+    private String email;
+    private String resetToken;
+    private Long   resetTokenExpiry;
+
     public User() {}
 
     public User(String username, String password, String role) {
@@ -34,22 +38,28 @@ public class User {
     }
 
     // ── Getters ──────────────────────────────────────
-    public Long getId()            { return id; }
-    public String getUsername()    { return username; }
-    public String getPassword()    { return password; }
-    public String getRole()        { return role; }
-    public String getNom()         { return nom; }
-    public String getPrenom()      { return prenom; }
-    public boolean isActif()       { return actif; }
-    public String getDateCreation(){ return dateCreation; }
+    public Long getId()                  { return id; }
+    public String getUsername()          { return username; }
+    public String getPassword()          { return password; }
+    public String getRole()              { return role; }
+    public String getNom()               { return nom; }
+    public String getPrenom()            { return prenom; }
+    public boolean isActif()             { return actif; }
+    public String getDateCreation()      { return dateCreation; }
+    public String getEmail()             { return email; }
+    public String getResetToken()        { return resetToken; }
+    public Long getResetTokenExpiry()    { return resetTokenExpiry; }
 
     // ── Setters ──────────────────────────────────────
-    public void setId(Long id)                   { this.id = id; }
-    public void setUsername(String username)     { this.username = username; }
-    public void setPassword(String password)     { this.password = password; }
-    public void setRole(String role)             { this.role = role; }
-    public void setNom(String nom)               { this.nom = nom; }
-    public void setPrenom(String prenom)         { this.prenom = prenom; }
-    public void setActif(boolean actif)          { this.actif = actif; }
-    public void setDateCreation(String d)        { this.dateCreation = d; }
+    public void setId(Long id)                          { this.id = id; }
+    public void setUsername(String username)            { this.username = username; }
+    public void setPassword(String password)            { this.password = password; }
+    public void setRole(String role)                    { this.role = role; }
+    public void setNom(String nom)                      { this.nom = nom; }
+    public void setPrenom(String prenom)                { this.prenom = prenom; }
+    public void setActif(boolean actif)                 { this.actif = actif; }
+    public void setDateCreation(String d)               { this.dateCreation = d; }
+    public void setEmail(String email)                  { this.email = email; }
+    public void setResetToken(String resetToken)        { this.resetToken = resetToken; }
+    public void setResetTokenExpiry(Long expiry)        { this.resetTokenExpiry = expiry; }
 }

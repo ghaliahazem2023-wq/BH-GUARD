@@ -92,39 +92,34 @@ success.put("prenom",   user.getPrenom());
         return ResponseEntity.ok(success);
     }
 
-    @PostMapping("/reset-password")
-    public ResponseEntity<Map<String, Object>> resetPassword(
-            @RequestBody Map<String, String> body) {
-        String username    = body.get("username");
-        String fonction    = body.get("fonction");
-        String newPassword = body.get("newPassword");
-
-        Map<String, Object> response = new HashMap<>();
-
-        Optional<User> userOpt = userService.findByUsername(username);
-        if (userOpt.isPresent()) {
-            User user = userOpt.get();
-            if (user.getRole().trim().equalsIgnoreCase(fonction)) {
-                user.setPassword(passwordEncoder.encode(newPassword));
-                userService.save(user);
-                response.put("message", "Mot de passe mis à jour !");
-                return ResponseEntity.ok(response);
-            }
-        }
-        response.put("message", "Username ou Fonction incorrecte.");
-        return ResponseEntity.status(401).body(response);
-    }
-
-
-   
-
     @PostMapping("/forgot-password")
     public ResponseEntity<Map<String, Object>> forgotPassword(
             @RequestBody Map<String, String> body) {
         String email = body.get("email");
         Map<String, Object> response = new HashMap<>();
+
+        Optional<User> userOpt = userService.findByEmail(email);
+        if (userOpt.isEmpty()) {
+            response.put("message", "Aucun compte associé à cet email.");
+            return ResponseEntity.status(404).body(response);
+        }
+
+        User user = userOpt.get();
+        String token = java.util.UUID.randomUUID().toString();
+        long   now    = System.currentTimeMillis();
+        long   expiry = now + (2 * 60 * 1000); // 2 minutes exactement
+
+        System.out.println("[RESET] now    = " + now);
+        System.out.println("[RESET] expiry = " + expiry + "  (diff=" + (expiry - now) + "ms = 120000ms attendu)");
+
+        user.setResetToken(token);
+        user.setResetTokenExpiry(expiry);
+        userService.save(user);
+
         try {
-            mailService.sendResetEmail(email, "http://localhost:4200/reset-password");
+            String link = "http://localhost:4200/reset-password?token=" + token + "&expiry=" + expiry;
+            System.out.println("[RESET] Lien envoyé : " + link);
+            mailService.sendResetEmail(email, link);
             response.put("message", "Un lien de réinitialisation a été envoyé à " + email);
             response.put("success", true);
             return ResponseEntity.ok(response);
@@ -132,6 +127,45 @@ success.put("prenom",   user.getPrenom());
             response.put("message", "Erreur envoi email : " + e.getMessage());
             return ResponseEntity.status(500).body(response);
         }
+    }
+
+    @PostMapping("/reset-password")
+    public ResponseEntity<Map<String, Object>> resetPassword(
+            @RequestBody Map<String, String> body) {
+        String token       = body.get("token");
+        String newPassword = body.get("newPassword");
+        Map<String, Object> response = new HashMap<>();
+
+        if (token == null || newPassword == null) {
+            response.put("message", "Token ou mot de passe manquant.");
+            return ResponseEntity.badRequest().body(response);
+        }
+
+        Optional<User> userOpt = userService.findByResetToken(token);
+        if (userOpt.isEmpty()) {
+            response.put("message", "Lien invalide ou déjà utilisé.");
+            return ResponseEntity.status(400).body(response);
+        }
+
+        User user = userOpt.get();
+
+        long nowCheck   = System.currentTimeMillis();
+        long expiryInDb = user.getResetTokenExpiry() != null ? user.getResetTokenExpiry() : 0L;
+        System.out.println("[RESET] Vérification expiry — now=" + nowCheck + " | expiry_db=" + expiryInDb + " | diff=" + (expiryInDb - nowCheck) + "ms");
+
+        if (user.getResetTokenExpiry() == null ||
+            nowCheck > user.getResetTokenExpiry()) {
+            response.put("message", "Le lien de réinitialisation a expiré. Veuillez refaire une demande.");
+            return ResponseEntity.status(410).body(response);
+        }
+
+        user.setPassword(passwordEncoder.encode(newPassword));
+        user.setResetToken(null);
+        user.setResetTokenExpiry(null);
+        userService.save(user);
+
+        response.put("message", "Mot de passe mis à jour avec succès !");
+        return ResponseEntity.ok(response);
     }
 
     @GetMapping("/hash/{pwd}")

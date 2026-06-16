@@ -515,8 +515,24 @@ class FraudModel:
                         f"INSTRUCTION : Analyse avec structure 📋 PROFIL | 💰 FINANCIER | ⚠️ SIGNAUX | 🧮 SCORE | 🎯 RECO\n"
                     )
 
+            REGLES_ANTI_HALLUCINATION = (
+                "══ RÈGLES ABSOLUES — RESPECTER STRICTEMENT ══\n"
+                "- Tu n'as accès QU'AUX données fournies explicitement dans ce contexte.\n"
+                "- Tu NE DOIS JAMAIS inventer de noms de personnes, numéros de dossiers, montants, villes, dates "
+                "ou toute autre donnée absente du contexte fourni.\n"
+                "- Si une information demandée n'est pas disponible dans les données fournies, réponds : "
+                "'Cette information n'est pas disponible dans les données actuelles.'\n"
+                "- Ne complète JAMAIS un exemple fictif sauf si l'utilisateur le demande EXPLICITEMENT "
+                "en précisant qu'il veut un exemple fictif/hypothétique.\n"
+                "- Base TOUTES tes réponses uniquement sur les données présentes dans ce prompt. "
+                "Aucune extrapolation, aucune invention.\n"
+                "- Si le contexte est vide ou incomplet, dis-le à l'utilisateur au lieu d'halluciner.\n"
+                "══════════════════════════════════════════════\n\n"
+            )
+
             if is_general:
                 system = (
+                    REGLES_ANTI_HALLUCINATION +
                     f"Tu es VeriAI, l'Assistant IA Anti-Fraude de BH Assurance Tunisie.\n"
                     f"Tu es en MODE ASSISTANT GÉNÉRAL — tu peux répondre sur n'importe quel dossier ou statistique.\n\n"
                     f"══ STATISTIQUES GLOBALES BASE DE DONNÉES ══\n"
@@ -541,16 +557,17 @@ class FraudModel:
                     f"6. Connecte TOUJOURS les signaux entre eux (montant + décès + délai = analyse croisée).\n"
                     f"7. Calcul score : détaille Score Formule + Score ML + (2×F + ML)/3 = Score Global\n"
                     f"8. La décision finale appartient toujours à l'agent humain.\n"
-                    f"9. 200-350 mots pour une analyse complète. Emojis avec modération.\n"
+                    f"9. Réponds de manière COMPLÈTE sans jamais t'arrêter à mi-chemin. Si on demande plusieurs dossiers, TOUS doivent être analysés entièrement. Emojis avec modération.\n"
                     f"10. Si l'agent écrit 'zid', 'elaborate', 'fassarli', 'plus de détails', 'approfondis' → "
                     f"développe l'analyse PRÉCÉDENTE avec plus de profondeur et de liens causaux. "
                     f"Ne répète pas — ajoute de nouvelles perspectives et connexions."
                 )
             else:
                 system = (
+                    REGLES_ANTI_HALLUCINATION +
                     f"Tu es VeriAI, l'Assistant IA Anti-Fraude de BH Assurance Tunisie.\n"
                     f"Tu as accès aux données COMPLÈTES et VÉRIFIÉES du sinistre {num}.\n"
-                    f"RÈGLE ABSOLUE : Tu dois utiliser EXACTEMENT les valeurs fournies ci-dessous.\n"
+                    f"RÈGLE ABSOLUE : Tu dois utiliser EXACTEMENT les valeurs fournies ci-dessous. Zéro invention.\n"
                     f"INTERDIT de dire 'information non disponible' ou 'je ne sais pas' si la valeur est présente.\n\n"
                     f"══ IDENTIFICATION ══\n"
                     f"N° Sinistre       : {num}\n"
@@ -597,7 +614,7 @@ class FraudModel:
                     f"5. Si score >= 40 → commence par '⚡ SURVEILLANCE REQUISE —'\n"
                     f"6. Si score < 40  → commence par '✅ PROFIL CONFORME —'\n"
                     f"7. Structure avec bullet points. Termine par **Recommandation :** + action concrète.\n"
-                    f"8. Maximum 350 mots. INTERDIT de dire 'je ne sais pas' si la valeur est fournie.\n"
+                    f"8. Réponds de manière COMPLÈTE, sans jamais t'arrêter à mi-phrase. INTERDIT de dire 'je ne sais pas' si la valeur est fournie.\n"
                     f"9. Si l'agent écrit 'zid', 'elaborate', 'fassarli', 'plus de détails', 'approfondis' → "
                     f"développe l'analyse précédente avec plus de profondeur. Ne répète pas — ajoute de nouvelles connexions."
                 )
@@ -614,11 +631,12 @@ class FraudModel:
                     "Content-Type": "application/json"
                 },
                 json={
-                    "model": "mistral-large-latest",
-                    "messages": messages,
-                    "max_tokens": 1000
+                    "model"      : "mistral-large-latest",
+                    "messages"   : messages,
+                    "max_tokens" : 4000,
+                    "temperature": 0.2
                 },
-                timeout=30
+                timeout=90
             )
             print(f"[MISTRAL] Status code: {response.status_code}")
             print(f"[MISTRAL] Response: {response.text[:300]}")

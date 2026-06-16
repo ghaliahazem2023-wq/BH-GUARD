@@ -1258,9 +1258,25 @@
               <div class="vai-inp-box">
                 <textarea class="vai-ta"
                           [(ngModel)]="vaiInput"
-                          placeholder="Posez une question ou entrez un numéro de sinistre..."
+                          placeholder="Posez une question ou parlez..."
                           (keydown.enter)="vaiSendMsg($event)"
                           rows="1"></textarea>
+
+                <!-- 🎤 BOUTON MICRO -->
+                <button class="vai-mic" (click)="toggleMic()"
+                        [class.vai-mic-active]="isListening"
+                        [title]="isListening ? 'Arrêter' : 'Parler'">
+                  <svg *ngIf="!isListening" viewBox="0 0 24 24" fill="none" width="16" height="16">
+                    <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"
+                          stroke="currentColor" stroke-width="2"/>
+                    <path d="M19 10v2a7 7 0 0 1-14 0v-2M12 19v4M8 23h8"
+                          stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                  </svg>
+                  <span *ngIf="isListening" class="mic-wave">
+                    <span></span><span></span><span></span>
+                  </span>
+                </button>
+
                 <button class="vai-send" (click)="vaiSendMsg(null)"
                         [disabled]="!vaiInput.trim() || vaiTyping">
                   <svg viewBox="0 0 24 24" fill="none" width="16" height="16">
@@ -1270,7 +1286,12 @@
                   </svg>
                 </button>
               </div>
-              <p class="vai-hint">Appuyez sur Entrée pour envoyer · Shift+Entrée pour nouvelle ligne</p>
+              <p class="vai-hint" *ngIf="isListening" style="color:#22c55e;animation:flash 1s infinite">
+                🎤 En écoute... parlez maintenant
+              </p>
+              <p class="vai-hint" *ngIf="!isListening">
+                Entrée pour envoyer · Shift+Entrée nouvelle ligne
+              </p>
             </div>
           </div>
         </div>

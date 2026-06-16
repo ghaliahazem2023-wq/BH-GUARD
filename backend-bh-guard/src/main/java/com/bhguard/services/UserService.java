@@ -77,6 +77,14 @@ public class UserService {
         return userRepository.findByUsername(username);
     }
 
+    public Optional<User> findByEmail(String email) {
+        return userRepository.findByEmail(email);
+    }
+
+    public Optional<User> findByResetToken(String token) {
+        return userRepository.findByResetToken(token);
+    }
+
     public User save(User user) {
         return userRepository.save(user);
     }
